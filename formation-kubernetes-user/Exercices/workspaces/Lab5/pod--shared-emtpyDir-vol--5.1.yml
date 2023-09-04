@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shared-vol-pod
+spec:
+  containers:
+    - image: 'nodevops/nginx-log2fs:1.12-alpine'
+      name: log2fs
+      volumeMounts:
+        - mountPath: /var/log/nginx
+          name: var-log-nginx
+    - image: 'centos:7'
+      name: shell
+      command:
+        - bash
+        - '-c'
+        - sleep infinity
+      volumeMounts:
+        - mountPath: /data
+          name: var-log-nginx
+  volumes:
+    - name: var-log-nginx
+      emptyDir: {}

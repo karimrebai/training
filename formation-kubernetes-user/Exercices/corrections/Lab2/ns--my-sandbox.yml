@@ -1,0 +1,7 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: my-sandbox
+  labels:
+    sandbox: "true"

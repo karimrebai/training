@@ -1,0 +1,37 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "labels": {
+      "run": "whoami",
+      "from-descriptor": "json",
+      "release": "stable",
+      "env": "int"
+    },
+    "name": "json-pod"
+  },
+  "spec": {
+    "containers": [
+      {
+        "image": "containous/whoami:latest",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "whoami",
+        "ports": [
+          {
+            "containerPort": 80
+          }
+        ]
+      },
+      {
+        "image": "centos:7",
+        "name": "shell-in-pod",
+        "imagePullPolicy": "Always",
+        "command": [
+          "bash",
+          "-c",
+          "sleep infinity"
+        ]
+      }
+    ]
+  }
+}

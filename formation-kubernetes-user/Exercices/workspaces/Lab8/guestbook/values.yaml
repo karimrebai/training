@@ -1,0 +1,46 @@
+# Default values for guestbook.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+storageReplicaCount: 1
+filterReplicaCount: 1
+gatewayReplicaCount: 1
+frontendReplicaCount: 1
+replicaCount: 1
+image:
+  mainVersion: 0.6.0
+# You can override individual version if you need to.
+# If no specific version is specified, mainVersion is used
+  #storageVersion:
+  #filterVersion:
+  #gatewayVersion:
+  #frontendVersion:
+initialDelaySeconds:
+  shared: 30
+#  storage: 30
+#  filter: 30
+#  gateway: 30
+  frontend: 15
+ingress:
+  gateway:
+    host: guestbook-api.192.168.99.100.xip.io
+    annotations:
+      kubernetes.io/ingress.class: traefik
+  frontend:
+    host: guestbook.192.168.99.100.xip.io
+    annotations:
+      kubernetes.io/ingress.class: traefik
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  #requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+redis:
+  usePassword: false
+  persistence:
+    enabled: false

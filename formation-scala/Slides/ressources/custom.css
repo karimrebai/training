@@ -1,0 +1,17 @@
+/* Bloc avec taille de font réduite */
+.reveal pre.reduce-size > code {
+  font-size: 1rem;
+}
+
+/* liste avec interligne réduite*/
+.reveal ul.reduce-size li {
+  margin: 0.5em 0 0;
+}
+.reveal ol.reduce-size, .reveal ul.reduce-size {
+  display: block;
+}
+
+/* Table avec taille de font réduite */
+.reveal .slides table.reduce-size {
+  font-size: 1.2rem;
+}

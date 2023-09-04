@@ -1,0 +1,22 @@
+{
+  "name": "Scala",
+  "description": "Formation Scala",
+  "version": "0.1.0",
+  "author": "Zenika",
+  "homepage": "https://www.zenika.com/formation_scala.html",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zenika/formation-scala"
+  },
+  "private": true,
+  "dependencies": {
+    "grunt": "^0.4.5",
+    "gulp": "^3.9.0",
+    "zenika-formation-framework": "git+https://github.com/Zenika/zenika-formation-framework.git#tags/0.4.7"
+  },
+  "config": {
+    "deploy": {
+      "name": "zen-formation-scala"
+    }
+  }
+}

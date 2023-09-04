@@ -1,0 +1,21 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: guestbook-storage-int
+  labels:
+    app: gbs
+    env: int
+spec:
+  selector:
+    app: gbs
+    env: int
+  ports:
+  - name: main-port
+    protocol: TCP
+    port: 80
+    targetPort: main-port
+  - name: admin-port
+    protocol: TCP
+    port: 8000
+    targetPort: admin-port

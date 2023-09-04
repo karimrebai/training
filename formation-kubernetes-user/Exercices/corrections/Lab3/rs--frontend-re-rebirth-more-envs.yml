@@ -1,0 +1,35 @@
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: frontend-re-rebirth
+  labels:
+    app: frontend
+    env: int
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+    matchExpressions:
+# Alternative : supprimer le 'matchLabels' et tout faire dans le 'matchExpressions'
+#      - key: app
+#        operator: In
+#        values:
+#          - frontend
+      - key: env
+        operator: In
+        values:
+          - int
+          - rd
+  template:
+    metadata:
+      labels:
+        app: frontend
+        env: int
+    spec:
+      containers:
+      - name: nginx-fe-4-rs
+        image: nginx:stable-alpine
+        ports:
+        - containerPort: 80

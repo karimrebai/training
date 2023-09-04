@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: rpchk
+    env: int
+  name: rp-check
+spec:
+  restartPolicy: OnFailure
+  containers:
+  - image: alpine:3.6
+    name: rp-check
+    command:
+    - "ash"
+    - "-c"
+    - "sleep 15s; false"

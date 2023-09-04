@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-cm-one-venv
+spec:
+  containers:
+    - name: witness
+      image: centos:7
+      command: [ "/bin/sh", "-c", "env ; sleep infinity" ]
+      env:
+        - name: SPECIAL_LEVEL_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: special-config
+              key: special.k

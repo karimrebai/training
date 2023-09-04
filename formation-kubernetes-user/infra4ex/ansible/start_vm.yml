@@ -1,0 +1,23 @@
+---
+# Warning : ip may change when restarting VM
+- name: Start AWS instance(s)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - common-vars.yml
+  tasks:
+    - name: Start EC2 instance(s)
+      ec2:
+        key_name: "{{ zproject_name }}-key"
+        region: "{{ zregion }}"
+        instance_type: "{{ zinstance_type }}"
+        image: "{{ zami }}"
+        wait: true
+        instance_tags:
+          env: "{{ zenv }}"
+          session: "{{ zsession_name }}"
+        count_tag:
+          env: "{{ zenv }}"
+          session: "{{ zsession_name }}"
+        state: running

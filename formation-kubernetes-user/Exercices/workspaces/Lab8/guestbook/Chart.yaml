@@ -1,0 +1,13 @@
+apiVersion: v1
+description: A Helm chart to deploy a simple guestbook
+name: guestbook
+version: 0.1.0
+keywords:
+  - guestbook
+  - springboot
+  - redis
+  - zenika
+maintainers:
+  - name: Christophe Furmaniak
+    email: christophe.furmaniak@zenika.com
+appVersion: 0.6.0

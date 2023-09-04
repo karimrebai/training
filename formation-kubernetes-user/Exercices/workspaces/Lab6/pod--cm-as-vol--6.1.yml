@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cm-as-vol
+spec:
+  containers:
+    - name: droopy
+      image: centos:7
+      command: [ "/bin/sh", "-c", "ls /etc/config/ ; sleep infinity" ]
+      volumeMounts:
+      - name: config-volume
+        mountPath: /etc/config
+  volumes:
+    - name: config-volume
+      configMap:
+        name: game-config

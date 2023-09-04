@@ -1,0 +1,296 @@
+---
+
+- name: Getting ready
+  hosts: nodes
+  gather_facts: false
+  remote_user: "{{ z_remote_user }}"
+  become: true
+  vars_files:
+    - common-vars.yml
+  tags:
+    - prepare
+
+  tasks:
+    - name: Upload workspaces.zip
+      copy:
+        src: "{{ local_target_dir }}/workspaces.zip"
+        dest: "/home/{{ z_remote_user }}/"
+        owner: "{{ z_remote_user }}"
+        group: "{{ z_remote_user }}"
+
+    - name: Install epel repos
+      yum:
+        name: epel-release
+
+    - name: Enable Centos CR repos (because of xrdp FTM)
+      command: |
+        yum-config-manager --enable cr
+      changed_when: false
+
+    - name: Setup Google Chrome repo
+      yum_repository:
+        name: google-chrome
+        description: Google Chrome
+        baseurl: http://dl.google.com/linux/chrome/rpm/stable/x86_64
+        gpgcheck: true
+        gpgkey: https://dl-ssl.google.com/linux/linux_signing_key.pub
+
+    - name: Setup vscode repo
+      yum_repository:
+        name: vscode
+        description: Visual Studio Code
+        baseurl: https://packages.microsoft.com/yumrepos/vscode
+        gpgcheck: true
+        gpgkey: https://packages.microsoft.com/keys/microsoft.asc
+
+    - name: Install tools
+      yum:
+        name:
+          - vim
+          - unzip
+          - nc
+          - python2-pip
+          - make
+          - gcc
+          - python-devel
+          - firefox
+          - xrdp
+          - freerdp-plugins
+          - bash-completion
+          - socat
+          - jq
+          - google-chrome-stable
+          - code
+          - "@Xfce"
+
+    - name: Ensure xrdp daemon is started and enabled
+      service:
+        name: xrdp
+        state: started
+        enabled: true
+
+    - name: Install kick-ass glances
+      pip:
+        name: glances
+
+- name: Install docker
+  hosts: nodes
+  remote_user: "{{ z_remote_user }}"
+  become: true
+  vars_files:
+    - common-vars.yml
+  tags:
+    - install_docker
+
+  tasks:
+    - name: Setup docker repo
+      yum_repository:
+        name: docker-ce
+        description: Docker CE
+        baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+        gpgcheck: true
+        gpgkey: https://download.docker.com/linux/centos/gpg
+
+    - name: "Install docker version {{ docker_version }}"
+      yum:
+        name: "docker-ce-{{ docker_version }}"
+        state: present
+
+    - name: Add remote_user to docker group
+      user:
+        name: "{{ z_remote_user }}"
+        groups: docker
+
+    - name: Ensure docker daemon is started and enabled
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Gather Docker version
+      command: |
+        {% raw %}
+        docker version --format '{{json .}}'
+        {% endraw %}
+      register: docker_version_cmd
+      changed_when: false
+
+    - name: Show off Docker version
+      debug:
+        msg: "{{ (docker_version_cmd.stdout | from_json).Server.Version }}"
+
+- name: Install Guacamole
+  hosts: nodes
+  remote_user: "{{ z_remote_user }}"
+  become: true
+  vars_files:
+    - common-vars.yml
+  tags:
+    - install_guacamole
+
+  tasks:
+    - name: Install guacd
+      yum:
+        name:
+          - "guacd-{{ guacamole_version }}"
+          - "libguac-client-rdp-{{ guacamole_version }}"
+        enablerepo: epel-testing
+        state: present
+
+    - name: Install tomcat
+      yum:
+        name: tomcat
+        state: present
+
+    - name: Setup tomcat
+      copy:
+        src: tomcat-server.xml
+        dest: /etc/tomcat/server.xml
+        owner: tomcat
+        group: tomcat
+
+    - name: Install guacamole-client webapp
+      get_url:
+        url: "http://archive.apache.org/dist/guacamole/{{ guacamole_version }}/binary/guacamole-{{ guacamole_version }}.war"
+        dest: /var/lib/tomcat/webapps/guacamole.war
+        checksum: "{{ guacamole_client_checksum }}"
+        owner: tomcat
+        group: tomcat
+
+    - name: Create guacamole conf dir
+      file:
+        path: /etc/guacamole/
+        state: directory
+        owner: tomcat
+        group: tomcat
+
+    - name: Setup guacamole authentication
+      template:
+        src: user-mapping.xml.j2
+        dest: /etc/guacamole/user-mapping.xml
+        owner: tomcat
+        group: tomcat
+
+    - name: Setup Xclients
+      lineinfile:
+        path: "/home/{{ z_remote_user }}/.Xclients"
+        create: true
+        line: 'xfce4-session'
+        state: present
+        owner: "{{ z_remote_user }}"
+        group: "{{ z_remote_user }}"
+        mode: 0775
+
+    - name: Setup default panel
+      lineinfile:
+        path: "/home/{{ z_remote_user }}/.bash_profile"
+        line: 'export XFCE_PANEL_MIGRATE_DEFAULT=1'
+
+    - name: Setup remote user password for RDP access
+      user:
+        name: "{{ z_remote_user }}"
+        password: "{{ z_remote_user_password | password_hash() }}"
+      changed_when: false
+
+    - name: Launch and enable tomcat service
+      service:
+        name: tomcat
+        state: started
+        enabled: true
+
+    - name: Launch and enable guacd service
+      service:
+        name: guacd
+        state: started
+        enabled: true
+
+- name: Setup kubectl
+  hosts: nodes
+  remote_user: "{{ z_remote_user }}"
+  become: true
+  vars_files:
+    - common-vars.yml
+  tags:
+    - setup_kubectl
+
+  tasks:
+    - name: Setup Kubernetes repo
+      yum_repository:
+        name: kubernetes
+        description: Kubernetes
+        baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+        gpgcheck: true
+        repo_gpgcheck: false
+        gpgkey: "https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg"
+
+    - name: Install kubectl
+      yum:
+        name: kubectl
+        state: present
+
+    - name: Generate completion file
+      shell: |
+        kubectl completion bash > /etc/bash_completion.d/kubectl
+      args:
+        creates: /etc/bash_completion.d/kubectl
+
+- name: Setup minikube
+  hosts: nodes
+  remote_user: "{{ z_remote_user }}"
+  become: true
+  vars_files:
+    - common-vars.yml
+  tags:
+    - setup_minikube
+
+  tasks:
+    - name: Adjust secure_path in sudo config
+      lineinfile:
+        path: /etc/sudoers
+        regexp: '^Defaults    secure_path'
+        line: 'Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin'
+
+    - name: Compute latest minikube version
+      uri:
+        url: https://api.github.com/repos/kubernetes/minikube/releases/latest
+      register: minikube_latest_version_get
+
+    - name: "Download minikube {{ minikube_latest_version_get.json.tag_name }}"
+      get_url:
+        url: "https://storage.googleapis.com/minikube/releases/{{ minikube_latest_version_get.json.tag_name }}/minikube-linux-amd64"
+        dest: /usr/local/bin/minikube
+        mode: 0755
+
+    - name: Generate completion file
+      shell: |
+        minikube completion bash > /etc/bash_completion.d/minikube
+      args:
+        creates: /etc/bash_completion.d/minikube
+
+    - name: Prepare vm-driver none env vars
+      copy:
+        src: minikube.vm-driver-none.env.sh
+        dest: "/home/{{ z_remote_user }}/.minikube.vm-driver-none.env.sh"
+        owner: "{{ z_remote_user }}"
+        group: "{{ z_remote_user }}"
+        mode: 0644
+
+    - name: Setup vm-driver none env vars include
+      lineinfile:
+        path: "/home/{{ z_remote_user }}/.bashrc"
+        create: true
+        line: 'source ~/.minikube.vm-driver-none.env.sh'
+        state: present
+        owner: "{{ z_remote_user }}"
+        group: "{{ z_remote_user }}"
+        mode: 0644
+
+    - name: Setup minikube alias
+      lineinfile:
+        path: "/home/{{ z_remote_user }}/.bashrc"
+        create: true
+        line: "alias minikube='sudo -E minikube'"
+        state: present
+        owner: "{{ z_remote_user }}"
+        group: "{{ z_remote_user }}"
+        mode: 0644

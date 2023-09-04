@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: gw
+  name: gateway
+spec:
+  containers:
+  - image: centos:7
+    name: shell-in-pod
+    command:
+      - "bash"
+      - "-c"
+      - "sleep infinity"

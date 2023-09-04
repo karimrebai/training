@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1 # Utiliser 'apps/v1' à partir de Kubernetes v1.9, sinon apps/v1beta2
+kind: ReplicaSet
+metadata:
+  name: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+      env: int
+  template:
+    metadata:
+      name: nginx
+      labels:
+        app: nginx
+        env: int
+    spec:
+      containers:
+        - name: nginx
+          image: 'nginx:alpine'
+          ports:
+            - containerPort: 80

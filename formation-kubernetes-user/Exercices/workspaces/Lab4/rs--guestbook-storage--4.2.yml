@@ -1,0 +1,27 @@
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: guestbook-storage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gbs
+      env: int
+  template:
+    metadata:
+      labels:
+        app: gbs
+        env: int
+    spec:
+      containers:
+        - image: looztra/guestbook-storage:0.5.2-aio
+          name: storage
+          ports:
+            - {name: main-port, containerPort: 8080}
+            - {name: admin-port, containerPort: 9090}
+          env:
+            - name: MANAGEMENT_PORT
+              value: "9090"
+

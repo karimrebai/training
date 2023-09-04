@@ -1,0 +1,18 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: whoami-int
+  labels:
+    app: whoami
+    env: int
+spec:
+  selector:
+    app: whoami
+    env: int
+  ports:
+    - name: main
+      protocol: TCP
+      port: 8080
+      #targetPort: 80
+      targetPort: main-port

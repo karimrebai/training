@@ -1,0 +1,10 @@
+node_modules
+.idea
+PDF
+dist
+.DS_Store
+target/
+build/
+.iml
+SVN/1-Scala.pdf
+*/**/.idea_modules

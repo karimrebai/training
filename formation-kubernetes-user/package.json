@@ -1,0 +1,29 @@
+{
+  "name": "formation-kubernetes-user",
+  "description": "Formation Kubernetes pour les utilisateurs.",
+  "version": "1.0.0",
+  "author": "Zenika",
+  "homepage": "https://training.zenika.com/formations/kubernetes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zenika/formation-kubernetes-user"
+  },
+  "private": true,
+  "dependencies": {
+    "grunt": "^0.4.5",
+    "gulp": "^3.9.0",
+    "zenika-formation-framework": "^3.0.0"
+  },
+  "config": {
+    "deploy": {
+      "name": "formation-kubernetes-user"
+    }
+  },
+  "scripts": {
+    "start": "grunt",
+    "deploy": "zenika-formation-deploy"
+  },
+  "devDependencies": {
+    "grunt-cli": "^1.3.2"
+  }
+}

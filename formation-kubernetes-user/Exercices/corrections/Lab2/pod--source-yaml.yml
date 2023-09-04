@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: whoami
+    from-descriptor: yaml
+    standalone: "true"
+#    release: stable
+    release: unstable
+    env: int
+  annotations:
+    super.mycompany.com/ci-build-number: "722"
+  name: yaml-pod
+spec:
+  containers:
+    - image: 'containous/whoami:latest'
+      imagePullPolicy: IfNotPresent
+      name: whoami
+      ports:
+        - containerPort: 80
+    - image: 'centos:7'
+      name: shell-in-pod
+      imagePullPolicy: Always
+# 'command' => equivalent au 'entrypoint' docker
+# 'args' => equivalent au 'cmd' docker
+# Alternative : 'command' avec sleep+shell
+#      command:
+#        - bash
+#        - '-c'
+#        - sleep infinity
+# Alternative: 'command' avec sleep en PID 1
+#      command:
+#        - sleep
+#        - infinity
+# Alternative: 'args' plutôt que 'command'
+#      args:
+#        - sleep
+#        - infinity
+# Alternative: 'command' et 'args' qui collaborent
+      command:
+        - sleep
+      args:
+        - infinity

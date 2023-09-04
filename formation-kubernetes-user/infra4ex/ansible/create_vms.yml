@@ -1,0 +1,162 @@
+---
+
+- name: Create AWS instance
+  hosts: 127.0.0.1
+  connection: local
+  gather_facts: false
+  remote_user: "{{ z_remote_user }}"
+  vars_files:
+    - common-vars.yml
+  tags:
+    - create_vms
+
+  tasks:
+    - name: Check that local target dir exist
+      file:
+        path: "{{ local_target_dir }}"
+        state: directory
+
+    - name: Create workspaces.zip
+      archive:
+        path: "../../Exercices/workspaces"
+        dest: "{{ local_target_dir }}/workspaces.zip"
+        format: "zip"
+
+    - name: Create Exercices.zip
+      archive:
+        path: "../../Exercices"
+        dest: "{{ local_target_dir }}/Exercices.zip"
+        format: "zip"
+
+    - name: Check if key files already exist
+      stat:
+        path: "{{ key_file_path }}"
+      register: key_file_path_stat
+
+    - name: Create new ssh key-pair if needed
+      command: |
+        ssh-keygen -C "k8s-training" -N "" -f {{ key_file_path }}
+      when: not key_file_path_stat.stat.exists
+
+    - name: Check if puttygen is installed
+      command: |
+        puttygen --help
+      register: puttygen_check
+      changed_when: puttygen_check is failed
+      failed_when: false
+
+    - name: Check if ppk key file already exist
+      stat:
+        path: "{{ key_file_path }}.ppk"
+      register: ppk_key_file_path_stat
+
+    - name: Convert key for putty (puttygen required)
+      command: |
+        puttygen {{ key_file_path }} -o {{ key_file_path }}.ppk
+      when:
+        - puttygen_check is not changed
+        - not ppk_key_file_path_stat.stat.exists
+
+    - name: Create security group
+      ec2_group:
+        name: "{{ project_name }}_security_group"
+        description: "{{ project_name }} security group"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp  # ssh
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp  # http
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp  # https
+            from_port: 443
+            to_port: 443
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 8000
+            to_port: 8400
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 8500
+            to_port: 9999
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 30003  # don't expose dashboard (30000) and grafana (30002)
+            to_port: 32767
+            cidr_ip: 0.0.0.0/0
+          - proto: icmp
+            from_port: 8  # icmp type, -1 = any type, 8 = echo
+            to_port: -1  # icmp subtype, -1 = any subtype
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+      register: k8s_sg
+
+    - name: Create an EC2 key
+      ec2_key:
+        name: "{{ project_name }}-key"
+        region: "{{ region }}"
+        key_material: "{{ item }}"
+      with_file: "{{ key_file_path }}.pub"
+      register: ec2_key
+
+    - name: Create/Update EC2 instances list
+      ec2:
+        key_name: "{{ project_name }}-key"
+        region: "{{ region }}"
+        group_id: "{{ k8s_sg.group_id }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ ami }}"
+        wait: true
+        volumes:
+          - device_name: /dev/sda1
+            volume_type: gp2
+            volume_size: "{{ root_disk_volume_size_gib }}"
+            delete_on_termination: true
+        instance_tags:
+          env: "{{ env }}"
+          session: "{{ session_name }}"
+          Name: "{{ project_name }}"
+        count_tag:
+          env: "{{ env }}"
+          session: "{{ session_name }}"
+        exact_count: "{{ nb_instances }}"
+      register: ec2
+
+#    - name: Generate sequence id for tagging
+#      debug: msg="{{ item }}"
+#      with_sequence: start="1" end="{{ nb_instances }}" format=%02d
+#      register: sequence
+#      #when: ec2 is changed
+#
+#    - name: debug seq
+#      debug:
+#        var: sequence
+#
+#    - name: Tag instances
+#      ec2_tag:
+#        region: us-east-1
+#        resource: "{{ item.0.id }}"
+#        tags:
+#            Name: "{{ project_name }}-{{ item.1.msg }}"
+#      with_together:
+#        - "{{ ec2.instances }}"
+#        - "{{ sequence.results }}"
+#      when: ec2 is changed
+
+    - name: Build inventory
+      template:
+        src: hosts.j2
+        dest: "{{ hostpath_target }}"
+
+    - name: Wait for SSH to come up
+      local_action:
+        module: wait_for
+        host: "{{ item.public_ip }}"
+        port: 22
+        state: started
+      with_items: "{{ ec2.tagged_instances }}"

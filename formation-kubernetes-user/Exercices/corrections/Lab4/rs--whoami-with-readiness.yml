@@ -1,0 +1,27 @@
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: whoami
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: whoami
+      env: int
+  template:
+    metadata:
+      labels:
+        app: whoami
+        env: int
+    spec:
+      containers:
+      - image: containous/whoami:latest
+        name: whoami
+        ports:
+        - name: main-port
+          containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80

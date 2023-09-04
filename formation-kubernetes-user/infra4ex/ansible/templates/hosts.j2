@@ -1,0 +1,23 @@
+[local]
+localhost
+
+[local:vars]
+znb_instances={{ nb_instances }}
+zsession_name={{ session_name }}
+zregion={{ region }}
+zinstance_type={{ instance_type }}
+zami={{ ami }}
+zenv={{ env }}
+zproject_name={{ project_name }}
+zkey_file_path={{ key_file_path }}
+zconfig={{ config }}
+
+[nodes]
+{% for instance in ec2.tagged_instances %}
+{{ instance.public_ip }} tagged=yes private_ip={{ instance.private_ip}} dns_name={{ instance.dns_name}}
+{% endfor %}
+
+[nodes:vars]
+ansible_ssh_user={{ z_remote_user }}
+ansible_ssh_private_key_file={{ key_file_path }}
+zsession_name={{ session_name }}

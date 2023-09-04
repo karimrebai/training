@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    env: qlf
+    from-descriptor: yaml
+  name: light-sleeper
+spec:
+  nodeSelector:
+    container-runtime: docker
+  containers:
+    -
+      image: alpine:3.6
+      name: sleeper
+      command:
+        - "ash"
+        - "-c"
+        - "sleep 3d"

@@ -1,0 +1,24 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ template "gateway.fullname" . }}
+  labels:
+    app: {{ template "guestbook.name" . }}
+    component: gateway
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+    {{- range $key, $value := .Values.ingress.gateway.annotations }}
+      {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.gateway.host }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: {{ template "gateway.fullname" . }}
+              servicePort: main

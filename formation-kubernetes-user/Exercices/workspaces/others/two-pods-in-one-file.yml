@@ -1,0 +1,36 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    io.nodevops.label: cool
+  name: &fot first-of-two
+spec:
+  containers:
+    - image: 'centos:7'
+      imagePullPolicy: IfNotPresent
+      name: *fot
+      command:
+        - bash
+        - '-c'
+        - sleep infinity
+  restartPolicy: Always
+...
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    io.nodevops.label: cool
+  name: second-of-two
+spec:
+  containers:
+    - image: 'centos:7'
+      imagePullPolicy: IfNotPresent
+      name: shelly
+      command:
+        - bash
+        - '-c'
+        - sleep infinity
+  restartPolicy: Always
+...

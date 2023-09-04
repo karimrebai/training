@@ -1,0 +1,61 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "frontend.fullname" . }}
+  labels:
+    app: {{ template "guestbook.name" . }}
+    component: frontend
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.frontendReplicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "guestbook.name" . }}
+        component: frontend
+        release: {{ .Release.Name }}
+      annotations:
+        io.nodevops/rely-on-ingress: "yes"
+        io.nodevops/rely-on-confd: "yes"
+    spec:
+      containers:
+        - name: frontend
+          image: looztra/guestbook-frontend:{{ default .Values.image.mainVersion .Values.image.frontendVersion }}-confd
+          ports:
+          - name: main
+            containerPort: 80
+          env:
+            - name: GUESTBOOK_FRONTEND_API_SERVER_ROOT_URL
+              value: "http://{{ .Values.ingress.gateway.host }}"
+          volumeMounts:
+            - name: podinfo
+              mountPath: /etc/podinfo
+              readOnly: false
+          livenessProbe:
+            httpGet:
+              path: /config/app.config.js
+              port: 80
+            initialDelaySeconds: {{ default .Values.initialDelaySeconds.shared .Values.initialDelaySeconds.frontend }}
+            timeoutSeconds: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /config/app.config.js
+              port: 80
+            initialDelaySeconds: {{ default .Values.initialDelaySeconds.shared .Values.initialDelaySeconds.frontend }}
+            timeoutSeconds: 1
+            failureThreshold: 3
+      volumes:
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: "labels"
+                fieldRef:
+                  fieldPath: metadata.labels
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+

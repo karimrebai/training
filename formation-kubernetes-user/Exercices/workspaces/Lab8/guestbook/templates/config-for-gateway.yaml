@@ -1,0 +1,14 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ template "gateway.fullname" . }}
+  labels:
+    app: {{ template "guestbook.name" . }}
+    component: gateway
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  GUESTBOOK_ENDPOINTSASSTRING: {{ template "storage.fullname" . }}:8080
+  FILTER_ENDPOINTSASSTRING: {{ template "filter.fullname" . }}:8080

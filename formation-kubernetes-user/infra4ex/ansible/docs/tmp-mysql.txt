@@ -1,0 +1,85 @@
+docker run --name some-guacd -d guacamole/guacd
+
+#docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --mysql > initdb.sql
+
+docker container run -d --name mysql -v mysql-data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=zenika -e MYSQL_DATABASE=guacamole -e MYSQL_USER=guacamole -e MYSQL_PASSWORD=gu4c4m0l3 mysql:5.5
+
+sleep 15s
+
+#docker run -it --link mysql:mysql --rm -v $(pwd):/data mysql:5.5 sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uguacamole -p"$MYSQL_ENV_MYSQL_PASSWORD" guacamole < /data/initdb.sql'
+docker run -it --link mysql:mysql --rm -v $(pwd):/data mysql:5.5 sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uguacamole -p"$MYSQL_ENV_MYSQL_PASSWORD" guacamole < /data/.guacamole.init.sql'
+
+
+
+
+docker run --name some-guacamole \
+    --link some-guacd:guacd \
+    --link mysql:mysql \
+    -e MYSQL_HOSTNAME=mysql \
+    -e MYSQL_DATABASE=guacamole \
+    -e MYSQL_USER=guacamole \
+    -e MYSQL_PASSWORD=gu4c4m0l3 \
+    -d -p 8080:8080 guacamole/guacamole
+
+opt:
+docker run -it --link mysql:mysql --rm mysql:5.5 sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uguacamole -p"$MYSQL_ENV_MYSQL_PASSWORD"'
+docker run -it -v $(pwd):/data --link mysql:mysql --rm mysql:5.5 sh -c 'exec mysqldump -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uguacamole -p"$MYSQL_ENV_MYSQL_PASSWORD" --skip-extended-insert guacamole > /data/guacamole.init.sql'
+
+
+sudo yum install -y epel-release
+sudo yum install -y xrdp
+sudo systemctl start xrdp.service
+sudo systemctl enable xrdp.service
+sudo yum groupinstall "Xfce" -y
+
+Pour le user de connexion :
+echo "xfce4-session" > ~/.Xclients
+chmod a+x ~/.Xclients
+
+
+install vscode
+
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+yum check-update
+sudo yum install -y code
+
+vi /etc/yum.repos.d/google-chrome.repo
+
+[google-chrome]
+name=google-chrome
+baseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://dl-ssl.google.com/linux/linux_signing_key.pub
+
+yum install -y google-chrome-stable
+
+
+Installer Traefik pour rediriger vers le tomcat/guacamole
++ terminaison ssl
+
+docker-compose?
+
+Comment récupérer la config actuelle?
+    => config rdp, avec ip privée de la VM
+
+
+modif du password du user centos, stockage dans la conf guacamole
+
+remplacer mysql par l'authent "default"?
+=> https://guacamole.apache.org/doc/gug/configuring-guacamole.html
+    user-mapping.xml
+
+voir le guacamole.sql! (dump d'une config, mdp centos et ip priv à modifier)
+
+gestion du password => https://guacamole.apache.org/doc/gug/jdbc-auth.html#jdbc-auth-schema
+
+-- Generate salt
+SET @salt = UNHEX(SHA2(UUID(), 256));
+
+-- Create user and hash password with salt
+INSERT INTO guacamole_user (username, password_salt, password_hash)
+     VALUES ('myuser', @salt, UNHEX(SHA2(CONCAT('mypassword', HEX(@salt)), 256)));
+
+--skip-extended-insert

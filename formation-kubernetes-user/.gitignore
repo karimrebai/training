@@ -1,0 +1,14 @@
+node_modules
+.idea
+PDF
+dist
+.DS_Store
+/build
+*.iml
+*.swp
+npm-debug.log
+*.retry
+infra4ex/ansible/hosts
+tmp.*
+scratch.txt
+target/

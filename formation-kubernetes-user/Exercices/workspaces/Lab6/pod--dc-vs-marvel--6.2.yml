@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dc-vs-marvel
+spec:
+  containers:
+    - name: revelations
+      image: centos:7
+      command: [ "/bin/sh", "-c", "env ; sleep infinity" ]
+      volumeMounts:
+      - name: for-your-eyes-only
+        mountPath: "/etc/revelations"
+        readOnly: true
+  volumes:
+    - name: for-your-eyes-only
+      secret:
+        secretName: secret-identities

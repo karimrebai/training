@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-cm-all-vars
+spec:
+  containers:
+    - name: neo
+      image: centos:7
+      command: [ "/bin/sh", "-c", "env ; sleep infinity" ]
+      envFrom:
+      - configMapRef:
+          name: special-config-for-venv

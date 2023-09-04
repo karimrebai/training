@@ -1,0 +1,15 @@
+[
+  "00_agenda.md",
+  "01_context.md",
+  "02_first_steps.md",
+  "03_pods.md",
+  "04_replicasets.md",
+  "05_services.md",
+  "06_volumes.md",
+  "07_config_and_secrets.md",
+  "08_deployement_strategies.md",
+  "09_statefulsets.md",
+  "10_architecture.md",
+  "11_enteprise_ready.md",
+  "12_compatible_app.md"
+]

@@ -1,0 +1,49 @@
+---
+
+- name: Delete AWS instance(s)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Delete EC2 instance(s)
+      ec2:
+        key_name: "{{ zproject_name }}-key"
+        region: "{{ zregion }}"
+        instance_type: "{{ zinstance_type }}"
+        image: "{{ zami }}"
+        wait: true
+        instance_tags:
+          env: "{{ zenv }}"
+          session: "{{ zsession_name }}"
+        count_tag:
+          env: "{{ zenv }}"
+          session: "{{ zsession_name }}"
+        exact_count: 0
+
+    - name: Delete security group
+      ec2_group:
+        name: "{{ zproject_name }}_security_group"
+        description: "{{ zproject_name }} security group"
+        region: "{{ zregion }}"
+        state: absent
+
+    - name: Delete EC2 key
+      ec2_key:
+        name: "{{ zproject_name }}-key"
+        region: "{{ zregion }}"
+        state: absent
+
+    - name: Delete local key file
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ zkey_file_path }}"
+        - "{{ zkey_file_path }}.pub"
+        - "{{ zkey_file_path }}.ppk"
+
+#    - name: Delete inventory
+#      file:
+#        path: "{{ hostpath_target }}"
+#        state: absent

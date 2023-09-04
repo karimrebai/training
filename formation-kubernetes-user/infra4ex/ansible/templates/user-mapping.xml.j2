@@ -1,0 +1,15 @@
+<user-mapping>
+
+    <authorize
+            username="{{ guacamole_user }}"
+            password="{{ zsession_name | hash('md5') }}"
+            encoding="md5">
+        <connection name="centos-4-k8s">
+            <protocol>rdp</protocol>
+            <param name="hostname">localhost</param>
+            <param name="username">{{ z_remote_user }}</param>
+            <param name="password">{{ z_remote_user_password }}</param>
+        </connection>
+    </authorize>
+
+</user-mapping>

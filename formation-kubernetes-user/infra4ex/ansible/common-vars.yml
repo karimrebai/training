@@ -1,0 +1,47 @@
+---
+
+session_name: you-forgot-to-set-the-session-name-my-friend
+nb_instances: 1
+#
+# instance_type: t2.medium
+instance_type: t2.large
+# ami-3548444c => Centos 71805_01 / eu-west-1
+# ami-00846a67 => Centos 71805_01 / eu-west-2
+# ami-262e9f5b => Centos 71805_01 / eu-west-3
+config: centos7--eu-west-3
+#
+configurations:
+  centos7--eu-west-1:
+    ami: ami-3548444c
+    region: eu-west-1
+    remote_user: centos
+  centos7--eu-west-2:
+    ami: ami-00846a67
+    region: eu-west-2
+    remote_user: centos
+  centos7--eu-west-3:
+    ami: ami-262e9f5b
+    region: eu-west-3
+    remote_user: centos
+region: "{{ configurations[config]['region']}}"
+ami: "{{ configurations[config]['ami'] }}"
+env: k8s-training
+z_remote_user: "{{ configurations[config]['remote_user'] }}"
+# we need the full version now that we are using rpm
+# list of versions available : https://download.docker.com/linux/centos/7/x86_64/stable/Packages/
+docker_version: "18.06.1.ce"
+guacamole_version: 1.0.0
+guacamole_client_checksum: sha256:93f66f43f4ea77011dc44df2aeeb297dd270cb0f34593d221e58968216a469cf
+local_target_dir: "target"
+# we need more than the default 8GiB because it's not enough when guacamole and dependencies are used
+root_disk_volume_size_gib: 15
+# we need to setup the remote user password so that guacamole can login through RDP (till you find out how to make auth with ssh key work with guacamole you smarter reader)
+# btw, login through SSH with password is not enabled, and we don't want that
+z_remote_user_password: zenika
+z_salt: c0d1ng_z3_w0rld
+guacamole_user: zenika
+# computed
+project_name: "{{ env }}--{{ session_name }}"
+hostpath_target: "{{ local_target_dir }}/hosts.{{ project_name }}"
+key_file_path: "{{ local_target_dir }}/{{project_name}}"
+hoststring: "ansible_ssh_user={{ z_remote_user }} ansible_ssh_private_key_file={{ key_file_path }}"

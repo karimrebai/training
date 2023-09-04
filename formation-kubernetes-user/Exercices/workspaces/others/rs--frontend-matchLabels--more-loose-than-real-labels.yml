@@ -1,0 +1,21 @@
+---
+apiVersion: apps/v1beta2
+kind: ReplicaSet
+metadata:
+  name: frontend-match-single-label
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        env: int
+    spec:
+      containers:
+      - name: who-cares
+        image: nginx:stable-alpine
+        ports:
+        - containerPort: 80

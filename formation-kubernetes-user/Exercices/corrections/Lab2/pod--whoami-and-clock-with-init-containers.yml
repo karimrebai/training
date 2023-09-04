@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: initc
+    env: int
+  name: whoami-and-clock-with-init
+spec:
+  containers:
+    - image: alpine:3.6
+      name: whoami-and-clock-with-init
+      command:
+        - "ash"
+        - "-c"
+        - "sleep 3d"
+  initContainers:
+    - image: centos:7
+      name: timer
+      command:
+        - "bash"
+        - "-c"
+        - "for i in {1..15}; do date; sleep 1s; done"
