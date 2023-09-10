@@ -700,3 +700,63 @@ functions.
 val dfWithDate = df.withColumn("date", to_date(col("InvoiceDate"), "MM/d/yyyy H:mm"))
 dfWithDate.createOrReplaceTempView("dfWithDate")
 ```
+
+## Chapter 8. Joins
+
+### Join types
+
+- Inner joins (keep rows with keys that exist in the left and right datasets)
+- Outer joins (keep rows with keys in either the left or right datasets)
+- Left outer joins (keep rows with keys in the left dataset)
+- Right outer joins (keep rows with keys in the right dataset)
+- Left semi joins (keep the rows in the left, and only the left, dataset where the key appears in the right dataset)
+- Left anti joins (keep the rows in the left, and only the left, dataset where they do not appear in the right 
+  dataset)
+- Natural joins (perform a join by implicitly matching the columns between the two datasets with the same names)
+- Cross (or Cartesian) joins (match every row in the left dataset with every row in the right dataset)
+
+### How Spark Performs Joins
+
+Spark approaches cluster communication in two different ways during joins: shuffle join, which results in an 
+all-to-all communication or a broadcast join.
+
+#### Big table–to–big table
+
+When you join a big table to another big table, you end up with a shuffle join.
+In a shuffle join, every node talks to every other node and they share data according to which node has a certain 
+key or set of keys (on which you are joining). These joins are expensive because the network can become congested 
+with traffic, especially if your data is not partitioned well.
+
+#### Big table–to–small table
+
+When the table is small enough to fit into the memory of a single worker node, with some breathing room of course, 
+we can optimize our join. Although we can use a big table–to–big table communication strategy, it can often be more 
+efficient to use a broadcast join. What this means is that we will replicate our small DataFrame onto every worker 
+node in the cluster (be it located on one machine or many). Now this sounds expensive. However, what this does is
+prevent us from performing the all-to-all communication during the entire join process. Instead, we perform it only 
+once at the beginning and then let each individual worker node perform the work without having to wait or 
+communicate with any other worker node.
+
+With the DataFrame API, we can also explicitly give the optimizer a hint that we would like to use a broadcast join 
+by using the correct function around the small DataFrame in question:
+```scala
+val joinExpr = person.col("graduate_program") === graduateProgram.col("id")
+person.join(broadcast(graduateProgram), joinExpr).explain()
+```
+
+The SQL interface also includes the ability to provide hints to perform joins. These are not
+enforced, however, so the optimizer might choose to ignore them. You can set one of these hints
+by using a special comment syntax. MAPJOIN, BROADCAST, and BROADCASTJOIN all do the same
+thing and are all supported:
+```sql
+SELECT /*+ MAPJOIN(graduateProgram) */ * FROM person JOIN graduateProgram
+ON person.graduate_program = graduateProgram.id
+```
+This doesn’t come for free either: if you try to broadcast something too large, you can crash your driver node 
+(because that collect is expensive). This is likely an area for optimization in the future.
+
+### Conclusion
+In this chapter, we discussed joins, probably one of the most common use cases. One thing we did not mention but is 
+important to consider is if you partition your data correctly prior to a join, you can end up with much more 
+efficient execution because even if a shuffle is planned, if data from two different DataFrames is already located 
+on the same machine, Spark can avoid the shuffle.
