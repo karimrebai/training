@@ -760,3 +760,44 @@ In this chapter, we discussed joins, probably one of the most common use cases. 
 important to consider is if you partition your data correctly prior to a join, you can end up with much more 
 efficient execution because even if a shuffle is planned, if data from two different DataFrames is already located 
 on the same machine, Spark can avoid the shuffle.
+
+
+## Chapter 9. Data Sources
+
+### The Structure of the Data Sources API
+
+#### Basics of Reading Data
+
+The foundation for reading data in Spark is the DataFrameReader. We access this through the SparkSession via the 
+read attribute: ```spark.read```
+At a minimum, you must supply the DataFrameReader a path to from which to read:
+```scala
+spark.read.format("csv")
+.option("mode", "FAILFAST")
+.option("inferSchema", "true")
+.option("path", "path/to/file(s)")
+.schema(someSchema)
+.load()
+```
+Read modes specify what will happen when Spark does come across malformed records:
+- **permissive**: Sets all fields to null when it encounters a corrupted record and places all corrupted records in a 
+  string column called _corrupt_record
+- **dropMalformed**: Drops the row that contains malformed records
+- **failFast**: Fails immediately upon encountering malformed records
+
+#### Basics of Writing Data
+After we have a DataFrameWriter, we specify three values: the format, a series of options, xand the save mode. At a 
+minimum, you must supply a path:
+```scala
+dataframe.write.format("csv")
+.option("mode", "OVERWRITE")
+.option("dateFormat", "yyyy-MM-dd")
+.option("path", "path/to/file(s)")
+.save()
+```
+Save modes:
+- **append**: Appends the output files to the list of files that already exist at that location
+- **overwrite**: Will completely overwrite any data that already exists there
+- **errorIfExists**: Throws an error and fails the write if data or files already exist at the specified location
+- **ignore**: If data or files exist at the location, do nothing with the current DataFrame
+
