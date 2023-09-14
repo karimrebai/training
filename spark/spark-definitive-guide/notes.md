@@ -801,3 +801,95 @@ Save modes:
 - **errorIfExists**: Throws an error and fails the write if data or files already exist at the specified location
 - **ignore**: If data or files exist at the location, do nothing with the current DataFrame
 
+### JSON files
+
+In Spark, when we refer to JSON files, we refer to line-delimited JSON files. This contrasts with files that have a 
+large JSON object or array per file.
+
+The line-delimited versus multiline trade-off is controlled by a single option: multiLine.
+
+Line-delimited JSON is actually a much more stable format because:
+- It allows you to append to a file with a new record (rather than read in an entire file and then write it out)
+- JSON objects have structure, and JavaScript (on which JSON is based) has at least basic types
+
+### Parquet files
+
+Parquet is an open source column-oriented data store that provides a variety of storage optimizations, especially
+for analytics workloads. It provides columnar compression, which saves storage space and allows for reading
+individual columns instead of entire files.
+
+#### Reading Parquet Files
+
+We can set the schema if we have strict requirements for what our DataFrame should look like. Oftentimes this is not 
+necessary because we can use schema on read, which is similar to the inferSchema with CSV files. However, with 
+Parquet files, this method is more powerful because the schema is built into the file itself (so no inference needed).
+
+### ORC files
+
+ORC is a self-describing, type-aware columnar file format designed for Hadoop workloads. It is optimized for large 
+streaming reads, but with integrated support for finding required rows quickly.
+
+What is the difference between ORC and Parquet? For the most part, they’re quite similar; the fundamental difference 
+is that Parquet is further optimized for use with Spark, whereas ORC is further optimized for Hive.
+
+### SQL Databases
+
+SQL datasources are one of the more powerful connectors because there are a variety of systems to which you can 
+connect (as long as that system speaks SQL).
+
+You’re going to need to begin considering things like authentication and connectivity (you’ll need to determine 
+whether the network of your Spark cluster is connected to the network of your database system).
+
+#### Reading from SQL Databases
+
+```scala
+val pgDF = spark.read
+        .format("jdbc")
+        .option("driver", "org.postgresql.Driver")
+        .option("url", "jdbc:postgresql://database_server")
+        .option("dbtable", "schema.tablename")
+        .option("user", "username")
+        .option("password","my-secret-password")
+        .load()
+
+pgDF.select("DEST_COUNTRY_NAME").distinct().show(5)
+```
+You’ll notice that there is already a schema, as well. That’s because Spark gathers this information from the table 
+itself and maps the types to Spark data types.
+
+#### Query Pushdown
+
+Spark makes a best-effort attempt to filter data in the database itself before creating the DataFrame. For example, 
+in the previous query, we can see from the query plan that it selects only the relevant column name from the table:
+```scala
+pgDF.select("DEST_COUNTRY_NAME").distinct().explain
+```
+== Physical Plan ==
+*HashAggregate(keys=[DEST_COUNTRY_NAME#8108], functions=[])
++- Exchange hashpartitioning(DEST_COUNTRY_NAME#8108, 200)
++- *HashAggregate(keys=[DEST_COUNTRY_NAME#8108], functions=[])
++- *Scan JDBCRelation(flight_info) [numPartitions=1] ...
+
+Spark can actually do better than this on certain queries. For example, if we specify a filter on our DataFrame, 
+Spark will push that filter down into the database. We can see this in the explain plan under PushedFilters.
+```scala
+pgDF.filter("DEST_COUNTRY_NAME in ('Anguilla', 'Sweden')").explain
+```
+== Physical Plan ==
+*Scan JDBCRel... PushedFilters: [*In(DEST_COUNTRY_NAME, [Anguilla,Sweden])],
+...
+
+Spark can’t translate all of its own functions into the functions available in the SQL database in which you’re 
+working. Therefore, sometimes you’re going to want to pass an entire query into your SQL that will return the 
+results as a DataFrame:
+```scala
+val pushdownQuery = """(SELECT DISTINCT(DEST_COUNTRY_NAME) FROM flight_info) AS flight_info"""
+val dbDataFrame = spark.read.format("jdbc")
+        .option("url", url)
+        .option("dbtable", pushdownQuery)
+        .option("driver", driver)
+        .load()
+```
+
+### Advanced I/O Concepts
+
