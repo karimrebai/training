@@ -469,8 +469,8 @@ dateDF.select(date_sub(col("today"), 5), date_add(col("today"), 5)).show(1)
 dateDF.withColumn("week_ago", date_sub(col("today"), 7)).select(datediff(col("week_ago"), col("today"))).show(1)
 
 dateDF.select(
-  to_date(lit("2016-01-01")).alias("start"),
-  to_date(lit("2017-05-22")).alias("end"))
+    to_date(lit("2016-01-01")).alias("start"),
+    to_date(lit("2017-05-22")).alias("end"))
   .select(months_between(col("start"), col("end"))).show(1)
 ```
 
@@ -481,36 +481,41 @@ be a bit tricky in larger pipelines because you might be expecting your data in 
 dates in different timezones or formats. We recommend that you parse them explicitly instead of relying on implicit
 conversions.
 
-
 ### Working with Nulls in Data
 
-As a best practice, you should always use nulls to represent missing or empty data in your DataFrames. Spark can 
+As a best practice, you should always use nulls to represent missing or empty data in your DataFrames. Spark can
 optimize working with null values more than it can if you use empty strings or other values.
 
 #### Coalesce
+
 Spark includes a function to allow you to select the first non-null value from a set of columns by using coalesce:
+
 ```scala
 df.select(coalesce(col("Description"), col("CustomerId"))).show()
 ```
 
 #### ifnull, nullIf, nvl, and nvl2
+
 ```sql
-SELECT
-ifnull(null, 'return_value'), -- return_value
-nullif('value', 'value'), -- null
-nvl(null, 'return_value'), -- return_value
-nvl2('not_null', 'return_value', "else_value") -- return_value
+SELECT ifnull(null, 'return_value'), -- return_value
+       nullif('value', 'value'),     -- null
+       nvl(null, 'return_value'),    -- return_value
+       nvl2('not_null', 'return_value', "else_value") -- return_value
 ```
 
 #### drop
+
 The simplest function is drop, which removes rows that contain nulls:
+
 ```scala
 df.na.drop()
 df.na.drop("all", Seq("StockCode", "InvoiceNo"))
 ```
 
 #### fill
+
 Using the fill function, you can fill one or more columns with a set of values:
+
 ```scala
 df.na.fill("All Null values become this string")
 
@@ -521,8 +526,10 @@ df.na.fill(fillColValues)
 ```
 
 #### Replace
-Replace all values in a certain column according to their current value. The only requirement is that this value be 
+
+Replace all values in a certain column according to their current value. The only requirement is that this value be
 the same type as the original value:
+
 ```scala
 df.na.replace("Description", Map("" -> "UNKNOWN"))
 ```
@@ -545,7 +552,7 @@ complexDF.select("complex.Description")
 ```scala
 // split
 df.select(split(col("Description"), " ").alias("array_col"))
-        .selectExpr("array_col[0]").show(2)
+  .selectExpr("array_col[0]").show(2)
 
 // length
 df.select(size(split(col("Description"), " "))).show(2)
@@ -554,12 +561,13 @@ df.select(size(split(col("Description"), " "))).show(2)
 df.select(array_contains(split(col("Description"), " "), "WHITE")).show(2)
 ```
 
-The explode function takes a column that consists of arrays and creates one row (with the rest of the values 
+The explode function takes a column that consists of arrays and creates one row (with the rest of the values
 duplicated) per value in the array:
+
 ```scala
 df.withColumn("splitted", split(col("Description"), " "))
-.withColumn("exploded", explode(col("splitted")))
-.select("Description", "InvoiceNo", "exploded").show(2)
+  .withColumn("exploded", explode(col("splitted")))
+  .select("Description", "InvoiceNo", "exploded").show(2)
 ```
 
 #### Maps
@@ -568,46 +576,47 @@ df.withColumn("splitted", split(col("Description"), " "))
 df.select(map(col("Description"), col("InvoiceNo")).alias("complex_map")).show(2)
 
 df.select(map(col("Description"), col("InvoiceNo")).alias("complex_map"))
-        .selectExpr("complex_map['WHITE METAL LANTERN']").show(2)
+  .selectExpr("complex_map['WHITE METAL LANTERN']").show(2)
 
 df.select(map(col("Description"), col("InvoiceNo")).alias("complex_map"))
-        .selectExpr("explode(complex_map)").show(2) 
+  .selectExpr("explode(complex_map)").show(2) 
 ```
 
 ## User-Defined Functions
 
-One of the most powerful things that you can do in Spark is define your own functions. These user-defined functions 
-(UDFs) make it possible for you to write your own custom transformations using Python or Scala and even use external 
+One of the most powerful things that you can do in Spark is define your own functions. These user-defined functions
+(UDFs) make it possible for you to write your own custom transformations using Python or Scala and even use external
 libraries.
 
 ```scala
 import org.apache.spark.sql.functions.udf
-val power3udf = udf(power3(_:Double):Double)
+
+val power3udf = udf(power3(_: Double): Double)
 
 udfExampleDF.select(power3udf(col("num"))).show()
 
-spark.udf.register("power3", power3(_:Double):Double)
+spark.udf.register("power3", power3(_: Double): Double)
 udfExampleDF.selectExpr("power3(num)").show(2)
 ```
-It is important to note that specifying the return type is not necessary, but it is a best practice.
 
+It is important to note that specifying the return type is not necessary, but it is a best practice.
 
 ## Chapter 7. Aggregations
 
-Let’s begin by reading in our data on purchases, repartitioning the data to have far fewer partitions (because we 
+Let’s begin by reading in our data on purchases, repartitioning the data to have far fewer partitions (because we
 know it’s a small volume of data stored in a lot of small files), and caching the results for rapid access:
 
 ```scala
 val df = spark.read.format("csv")
-.option("header", "true")
-.option("inferSchema", "true")
-.load("/data/retail-data/all/*.csv")
-.coalesce(5)
+  .option("header", "true")
+  .option("inferSchema", "true")
+  .load("/data/retail-data/all/*.csv")
+  .coalesce(5)
 df.cache()
 df.createOrReplaceTempView("dfTable")
 ```
 
-You can use count to get an idea of the total size of your dataset but another common pattern is to use it to cache 
+You can use count to get an idea of the total size of your dataset but another common pattern is to use it to cache
 an entire DataFrame in memory, just like we did in this example.
 
 ### Aggregation functions
@@ -617,24 +626,27 @@ an entire DataFrame in memory, just like we did in this example.
 - #### min and max
 - #### sum / sumDistinct
 - #### avg
+
 ```scala
 df.select(
-count("Quantity").alias("total_transactions"),
-sum("Quantity").alias("total_purchases"),
-avg("Quantity").alias("avg_purchases"),
-expr("mean(Quantity)").alias("mean_purchases"))
-.selectExpr(
-"total_purchases/total_transactions",
-"avg_purchases",
-"mean_purchases").show()
+    count("Quantity").alias("total_transactions"),
+    sum("Quantity").alias("total_purchases"),
+    avg("Quantity").alias("avg_purchases"),
+    expr("mean(Quantity)").alias("mean_purchases"))
+  .selectExpr(
+    "total_purchases/total_transactions",
+    "avg_purchases",
+    "mean_purchases").show()
 ```
+
 - #### Variance and Standard Deviation
 
   Calculating the mean naturally brings up questions about the variance and standard deviation.
   These are both measures of the spread of the data around the mean:
+
 ```scala
 df.select(var_pop("Quantity"), var_samp("Quantity"),
-stddev_pop("Quantity"), stddev_samp("Quantity")).show()
+  stddev_pop("Quantity"), stddev_samp("Quantity")).show()
 ```
 
 - #### skewness and kurtosis
@@ -650,8 +662,10 @@ stddev_pop("Quantity"), stddev_samp("Quantity")).show()
   column or only the unique values by collecting to a set.
   You can use this to carry out some more programmatic access later on in the pipeline or pass the
   entire collection in a user-defined function (UDF):
+
 ```scala
 import org.apache.spark.sql.functions.{collect_set, collect_list}
+
 df.agg(collect_set("Country"), collect_list("Country")).show()
 ```
 
@@ -660,6 +674,7 @@ df.agg(collect_set("Country"), collect_list("Country")).show()
 We do this grouping in two phases. First we specify the column(s) on which we would like to
 group, and then we specify the aggregation(s). The first step returns a
 RelationalGroupedDataset, and the second step returns a DataFrame:
+
 ```scala
 df.groupBy("InvoiceNo", "CustomerId").count().show()
 ```
@@ -669,33 +684,36 @@ df.groupBy("InvoiceNo", "CustomerId").count().show()
 As we saw earlier, counting is a bit of a special case because it exists as a method. For this,
 usually we prefer to use the count function. Rather than passing that function as an expression
 into a select statement, we specify it as within agg:
+
 ```scala
 df.groupBy("InvoiceNo").agg(
-count("Quantity").alias("quan"),
-expr("count(Quantity)")).show()
+  count("Quantity").alias("quan"),
+  expr("count(Quantity)")).show()
 ```
 
 #### Grouping with Maps
+
 Sometimes, it can be easier to specify your transformations as a series of Maps for which the key
 is the column, and the value is the aggregation function (as a string) that you would like to
 perform. You can reuse multiple column names if you specify them inline, as well:
-```scala
-df.groupBy("InvoiceNo").agg("Quantity"->"avg", "Quantity"->"stddev_pop").show()
-```
 
+```scala
+df.groupBy("InvoiceNo").agg("Quantity" -> "avg", "Quantity" -> "stddev_pop").show()
+```
 
 ### Window Functions
 
-You can also use window functions to carry out some unique aggregations by either computing some aggregation on a 
-specific “window” of data, which you define by using a reference to the current data. This window specification 
+You can also use window functions to carry out some unique aggregations by either computing some aggregation on a
+specific “window” of data, which you define by using a reference to the current data. This window specification
 determines which rows will be passed in to this function.
 Now this is a bit abstract and probably similar to a standard group-by, so let’s differentiate them a bit more.
-A group-by takes data, and every row can go only into one grouping. A window function calculates a return value for 
-every input row of a table based on a group of rows, called a frame. Each row can fall into one or more frames. A 
-common use case is to take a look at a rolling average of some value for which each row represents one day. If you 
+A group-by takes data, and every row can go only into one grouping. A window function calculates a return value for
+every input row of a table based on a group of rows, called a frame. Each row can fall into one or more frames. A
+common use case is to take a look at a rolling average of some value for which each row represents one day. If you
 were to do this, each row would end up in seven different frames. We cover defining frames a little later, but for your
-reference, Spark supports three kinds of window functions: ranking functions, analytic functions, and aggregate 
+reference, Spark supports three kinds of window functions: ranking functions, analytic functions, and aggregate
 functions.
+
 ```scala
 val dfWithDate = df.withColumn("date", to_date(col("InvoiceDate"), "MM/d/yyyy H:mm"))
 dfWithDate.createOrReplaceTempView("dfWithDate")
@@ -710,35 +728,36 @@ dfWithDate.createOrReplaceTempView("dfWithDate")
 - Left outer joins (keep rows with keys in the left dataset)
 - Right outer joins (keep rows with keys in the right dataset)
 - Left semi joins (keep the rows in the left, and only the left, dataset where the key appears in the right dataset)
-- Left anti joins (keep the rows in the left, and only the left, dataset where they do not appear in the right 
+- Left anti joins (keep the rows in the left, and only the left, dataset where they do not appear in the right
   dataset)
 - Natural joins (perform a join by implicitly matching the columns between the two datasets with the same names)
 - Cross (or Cartesian) joins (match every row in the left dataset with every row in the right dataset)
 
 ### How Spark Performs Joins
 
-Spark approaches cluster communication in two different ways during joins: shuffle join, which results in an 
+Spark approaches cluster communication in two different ways during joins: shuffle join, which results in an
 all-to-all communication or a broadcast join.
 
 #### Big table–to–big table
 
 When you join a big table to another big table, you end up with a shuffle join.
-In a shuffle join, every node talks to every other node and they share data according to which node has a certain 
-key or set of keys (on which you are joining). These joins are expensive because the network can become congested 
+In a shuffle join, every node talks to every other node and they share data according to which node has a certain
+key or set of keys (on which you are joining). These joins are expensive because the network can become congested
 with traffic, especially if your data is not partitioned well.
 
 #### Big table–to–small table
 
-When the table is small enough to fit into the memory of a single worker node, with some breathing room of course, 
-we can optimize our join. Although we can use a big table–to–big table communication strategy, it can often be more 
-efficient to use a broadcast join. What this means is that we will replicate our small DataFrame onto every worker 
+When the table is small enough to fit into the memory of a single worker node, with some breathing room of course,
+we can optimize our join. Although we can use a big table–to–big table communication strategy, it can often be more
+efficient to use a broadcast join. What this means is that we will replicate our small DataFrame onto every worker
 node in the cluster (be it located on one machine or many). Now this sounds expensive. However, what this does is
-prevent us from performing the all-to-all communication during the entire join process. Instead, we perform it only 
-once at the beginning and then let each individual worker node perform the work without having to wait or 
+prevent us from performing the all-to-all communication during the entire join process. Instead, we perform it only
+once at the beginning and then let each individual worker node perform the work without having to wait or
 communicate with any other worker node.
 
-With the DataFrame API, we can also explicitly give the optimizer a hint that we would like to use a broadcast join 
+With the DataFrame API, we can also explicitly give the optimizer a hint that we would like to use a broadcast join
 by using the correct function around the small DataFrame in question:
+
 ```scala
 val joinExpr = person.col("graduate_program") === graduateProgram.col("id")
 person.join(broadcast(graduateProgram), joinExpr).explain()
@@ -748,19 +767,23 @@ The SQL interface also includes the ability to provide hints to perform joins. T
 enforced, however, so the optimizer might choose to ignore them. You can set one of these hints
 by using a special comment syntax. MAPJOIN, BROADCAST, and BROADCASTJOIN all do the same
 thing and are all supported:
+
 ```sql
-SELECT /*+ MAPJOIN(graduateProgram) */ * FROM person JOIN graduateProgram
-ON person.graduate_program = graduateProgram.id
+SELECT /*+ MAPJOIN(graduateProgram) */ *
+FROM person
+         JOIN graduateProgram
+              ON person.graduate_program = graduateProgram.id
 ```
-This doesn’t come for free either: if you try to broadcast something too large, you can crash your driver node 
+
+This doesn’t come for free either: if you try to broadcast something too large, you can crash your driver node
 (because that collect is expensive). This is likely an area for optimization in the future.
 
 ### Conclusion
-In this chapter, we discussed joins, probably one of the most common use cases. One thing we did not mention but is 
-important to consider is if you partition your data correctly prior to a join, you can end up with much more 
-efficient execution because even if a shuffle is planned, if data from two different DataFrames is already located 
-on the same machine, Spark can avoid the shuffle.
 
+In this chapter, we discussed joins, probably one of the most common use cases. One thing we did not mention but is
+important to consider is if you partition your data correctly prior to a join, you can end up with much more
+efficient execution because even if a shuffle is planned, if data from two different DataFrames is already located
+on the same machine, Spark can avoid the shuffle.
 
 ## Chapter 9. Data Sources
 
@@ -768,34 +791,41 @@ on the same machine, Spark can avoid the shuffle.
 
 #### Basics of Reading Data
 
-The foundation for reading data in Spark is the DataFrameReader. We access this through the SparkSession via the 
+The foundation for reading data in Spark is the DataFrameReader. We access this through the SparkSession via the
 read attribute: ```spark.read```
 At a minimum, you must supply the DataFrameReader a path to from which to read:
+
 ```scala
 spark.read.format("csv")
-.option("mode", "FAILFAST")
-.option("inferSchema", "true")
-.option("path", "path/to/file(s)")
-.schema(someSchema)
-.load()
+  .option("mode", "FAILFAST")
+  .option("inferSchema", "true")
+  .option("path", "path/to/file(s)")
+  .schema(someSchema)
+  .load()
 ```
+
 Read modes specify what will happen when Spark does come across malformed records:
-- **permissive**: Sets all fields to null when it encounters a corrupted record and places all corrupted records in a 
+
+- **permissive**: Sets all fields to null when it encounters a corrupted record and places all corrupted records in a
   string column called _corrupt_record
 - **dropMalformed**: Drops the row that contains malformed records
 - **failFast**: Fails immediately upon encountering malformed records
 
 #### Basics of Writing Data
-After we have a DataFrameWriter, we specify three values: the format, a series of options, xand the save mode. At a 
+
+After we have a DataFrameWriter, we specify three values: the format, a series of options, xand the save mode. At a
 minimum, you must supply a path:
+
 ```scala
 dataframe.write.format("csv")
-.option("mode", "OVERWRITE")
-.option("dateFormat", "yyyy-MM-dd")
-.option("path", "path/to/file(s)")
-.save()
+  .option("mode", "OVERWRITE")
+  .option("dateFormat", "yyyy-MM-dd")
+  .option("path", "path/to/file(s)")
+  .save()
 ```
+
 Save modes:
+
 - **append**: Appends the output files to the list of files that already exist at that location
 - **overwrite**: Will completely overwrite any data that already exists there
 - **errorIfExists**: Throws an error and fails the write if data or files already exist at the specified location
@@ -803,12 +833,13 @@ Save modes:
 
 ### JSON files
 
-In Spark, when we refer to JSON files, we refer to line-delimited JSON files. This contrasts with files that have a 
+In Spark, when we refer to JSON files, we refer to line-delimited JSON files. This contrasts with files that have a
 large JSON object or array per file.
 
 The line-delimited versus multiline trade-off is controlled by a single option: multiLine.
 
 Line-delimited JSON is actually a much more stable format because:
+
 - It allows you to append to a file with a new record (rather than read in an entire file and then write it out)
 - JSON objects have structure, and JavaScript (on which JSON is based) has at least basic types
 
@@ -820,76 +851,197 @@ individual columns instead of entire files.
 
 #### Reading Parquet Files
 
-We can set the schema if we have strict requirements for what our DataFrame should look like. Oftentimes this is not 
-necessary because we can use schema on read, which is similar to the inferSchema with CSV files. However, with 
+We can set the schema if we have strict requirements for what our DataFrame should look like. Oftentimes this is not
+necessary because we can use schema on read, which is similar to the inferSchema with CSV files. However, with
 Parquet files, this method is more powerful because the schema is built into the file itself (so no inference needed).
 
 ### ORC files
 
-ORC is a self-describing, type-aware columnar file format designed for Hadoop workloads. It is optimized for large 
+ORC is a self-describing, type-aware columnar file format designed for Hadoop workloads. It is optimized for large
 streaming reads, but with integrated support for finding required rows quickly.
 
-What is the difference between ORC and Parquet? For the most part, they’re quite similar; the fundamental difference 
+What is the difference between ORC and Parquet? For the most part, they’re quite similar; the fundamental difference
 is that Parquet is further optimized for use with Spark, whereas ORC is further optimized for Hive.
 
 ### SQL Databases
 
-SQL datasources are one of the more powerful connectors because there are a variety of systems to which you can 
+SQL datasources are one of the more powerful connectors because there are a variety of systems to which you can
 connect (as long as that system speaks SQL).
 
-You’re going to need to begin considering things like authentication and connectivity (you’ll need to determine 
+You’re going to need to begin considering things like authentication and connectivity (you’ll need to determine
 whether the network of your Spark cluster is connected to the network of your database system).
 
 #### Reading from SQL Databases
 
 ```scala
 val pgDF = spark.read
-        .format("jdbc")
-        .option("driver", "org.postgresql.Driver")
-        .option("url", "jdbc:postgresql://database_server")
-        .option("dbtable", "schema.tablename")
-        .option("user", "username")
-        .option("password","my-secret-password")
-        .load()
+  .format("jdbc")
+  .option("driver", "org.postgresql.Driver")
+  .option("url", "jdbc:postgresql://database_server")
+  .option("dbtable", "schema.tablename")
+  .option("user", "username")
+  .option("password", "my-secret-password")
+  .load()
 
 pgDF.select("DEST_COUNTRY_NAME").distinct().show(5)
 ```
-You’ll notice that there is already a schema, as well. That’s because Spark gathers this information from the table 
+
+You’ll notice that there is already a schema, as well. That’s because Spark gathers this information from the table
 itself and maps the types to Spark data types.
 
 #### Query Pushdown
 
-Spark makes a best-effort attempt to filter data in the database itself before creating the DataFrame. For example, 
+Spark makes a best-effort attempt to filter data in the database itself before creating the DataFrame. For example,
 in the previous query, we can see from the query plan that it selects only the relevant column name from the table:
+
 ```scala
 pgDF.select("DEST_COUNTRY_NAME").distinct().explain
 ```
+
 == Physical Plan ==
 *HashAggregate(keys=[DEST_COUNTRY_NAME#8108], functions=[])
 +- Exchange hashpartitioning(DEST_COUNTRY_NAME#8108, 200)
 +- *HashAggregate(keys=[DEST_COUNTRY_NAME#8108], functions=[])
 +- *Scan JDBCRelation(flight_info) [numPartitions=1] ...
 
-Spark can actually do better than this on certain queries. For example, if we specify a filter on our DataFrame, 
+Spark can actually do better than this on certain queries. For example, if we specify a filter on our DataFrame,
 Spark will push that filter down into the database. We can see this in the explain plan under PushedFilters.
+
 ```scala
 pgDF.filter("DEST_COUNTRY_NAME in ('Anguilla', 'Sweden')").explain
 ```
+
 == Physical Plan ==
 *Scan JDBCRel... PushedFilters: [*In(DEST_COUNTRY_NAME, [Anguilla,Sweden])],
 ...
 
-Spark can’t translate all of its own functions into the functions available in the SQL database in which you’re 
-working. Therefore, sometimes you’re going to want to pass an entire query into your SQL that will return the 
+Spark can’t translate all of its own functions into the functions available in the SQL database in which you’re
+working. Therefore, sometimes you’re going to want to pass an entire query into your SQL that will return the
 results as a DataFrame:
+
 ```scala
 val pushdownQuery = """(SELECT DISTINCT(DEST_COUNTRY_NAME) FROM flight_info) AS flight_info"""
 val dbDataFrame = spark.read.format("jdbc")
-        .option("url", url)
-        .option("dbtable", pushdownQuery)
-        .option("driver", driver)
-        .load()
+  .option("url", url)
+  .option("dbtable", pushdownQuery)
+  .option("driver", driver)
+  .load()
 ```
 
 ### Advanced I/O Concepts
 
+#### Splittable File Types and Compression
+
+Certain file formats are fundamentally “splittable.” This can improve speed because it makes it possible for Spark
+to avoid reading an entire file, and access only the parts of the file necessary to satisfy your query.
+In conjunction with this is a need to manage compression. Not all compression schemes are splittable.
+How you store your data is of immense consequence when it comes to making your Spark jobs run smoothly.
+We recommend Parquet with gzip compression.
+
+#### Reading Data in Parallel
+
+Multiple executors can read different files at the same time. In general, this means that when you read from a folder
+with multiple files in it, each one of those files will become a partition in your DataFrame and be read in by
+available executors in parallel.
+
+#### Writing Data in Parallel
+
+The number of files or data written is dependent on the number of partitions the DataFrame has at the time you write
+out the data.
+
+- Partitioning
+  Partitioning is a tool that allows you to control what data is stored (and where) as you write it. When you write a
+  file
+  to a partitioned directory (or table), you basically encode a column as a folder. What this allows you to do is skip
+  lots
+  of data when you go to read it in later, allowing you to read in only the data relevant to your problem instead of
+  having to scan the complete dataset.
+
+```scala
+csvFile.limit(10).write.mode("overwrite").partitionBy("DEST_COUNTRY_NAME")
+  .save("/tmp/partitioned-files.parquet")
+```
+
+- Bucketing
+  Bucketing is another file organization approach with which you can control the data that is specifically written
+  to each file. This can help avoid shuffles later when you go to read the data because data with the same bucket ID
+  will all be grouped together into one physical partition. This means that the data is prepartitioned according to
+  how you expect to use that data later on, meaning you can avoid expensive shuffles when joining or aggregating.
+
+```scala
+val numberBuckets = 10
+val columnToBucketBy = "count"
+csvFile.write.format("parquet").mode("overwrite")
+  .bucketBy(numberBuckets, columnToBucketBy).saveAsTable("bucketedFiles")
+```
+
+#### Managing File Size
+
+Managing file sizes is an important factor not so much for writing data but reading it later on. When you’re writing
+lots of small files, there’s a significant metadata overhead that you incur managing all of those files. Spark
+especially does not do well with small files, although many file systems (like HDFS) don’t handle lots of small
+files well, either. You might hear this referred to as the “small file problem.” The opposite is also true: you
+don’t want files that are too large either, because it becomes inefficient to have to read entire blocks of data  
+when you need only a few rows.
+maxRecordsPerFile option allows to better control file sizes by controlling the number of records that are written
+to each file:
+
+```scala
+df.write.option("maxRecordsPerFile", 5000)
+```
+
+## Chapter 10. Spark SQL
+
+Spark SQL is arguably one of the most important and powerful features in Spark.
+In a nutshell, with Spark SQL you can run SQL queries against views or tables organized into databases.
+
+Spark SQL is intended to operate as an online analytic processing (OLAP) database, not an online transaction
+processing (OLTP) database. This means that it is not intended to perform extremely low-latency queries.
+
+### How to Run Spark SQL Queries
+
+#### Spark SQL CLI
+
+```shell
+./bin/spark-sql
+```
+
+#### Spark’s Programmatic SQL Interface
+
+Via the method sql on the SparkSession object:
+
+- Lazily executed
+- Powerful interface because some transformations that are much simpler to express in SQL code than in DataFrames
+
+```scala
+spark.sql(
+  """SELECT user_id, department, first_name FROM professors
+WHERE department IN
+(SELECT name FROM department WHERE created_date >= '2016-01-01')""")
+```
+
+- Even more powerful, you can completely interoperate between SQL and DataFrames:
+
+```scala
+spark.read.json("/data/flight-data/json/2015-summary.json")
+  .createOrReplaceTempView("some_sql_view") // DF => SQL
+spark.sql(
+    """SELECT DEST_COUNTRY_NAME, sum(count)
+FROM some_sql_view GROUP BY DEST_COUNTRY_NAME
+""")
+  .where("DEST_COUNTRY_NAME like 'S%'").where("`sum(count)` > 10")
+  .count() // SQL => DF
+```
+
+#### SparkSQL Thrift JDBC/ODBC Server
+
+Spark provides a Java Database Connectivity (JDBC) interface by which either you or a remote program connects to the 
+Spark driver in order to execute Spark SQL queries. A common use case might be a for a business analyst to connect 
+business intelligence software like Tableau to Spark.
+
+### Catalog
+
+The highest level abstraction in Spark SQL is the Catalog. The Catalog is an abstraction for the storage of metadata 
+about the data stored in your tables as well as other helpful things like databases, tables, functions, and views.
+
+### Tables
