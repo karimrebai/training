@@ -1035,13 +1035,208 @@ FROM some_sql_view GROUP BY DEST_COUNTRY_NAME
 
 #### SparkSQL Thrift JDBC/ODBC Server
 
-Spark provides a Java Database Connectivity (JDBC) interface by which either you or a remote program connects to the 
-Spark driver in order to execute Spark SQL queries. A common use case might be a for a business analyst to connect 
+Spark provides a Java Database Connectivity (JDBC) interface by which either you or a remote program connects to the
+Spark driver in order to execute Spark SQL queries. A common use case might be a for a business analyst to connect
 business intelligence software like Tableau to Spark.
 
 ### Catalog
 
-The highest level abstraction in Spark SQL is the Catalog. The Catalog is an abstraction for the storage of metadata 
+The highest level abstraction in Spark SQL is the Catalog. The Catalog is an abstraction for the storage of metadata
 about the data stored in your tables as well as other helpful things like databases, tables, functions, and views.
 
 ### Tables
+
+In Spark 2.X, tables always contain data. There is no notion of a temporary table, only a view, which does not
+contain data. If you go to drop a table, you can risk losing the data when doing so.
+
+#### Spark-Managed Tables
+
+One important note is the concept of managed versus unmanaged tables. Tables store the data within the tables as well
+as the data about the tables; that is, the metadata.
+You can have Spark manage the metadata for a set of files as well as for the data.
+When you define a table from files on disk, you are defining an unmanaged table.
+When you use saveAsTable on a DataFrame, you are creating a managed table for which Spark will track of all of the
+relevant information.
+
+#### Creating Tables
+
+```sparksql
+CREATE TABLE flights
+(
+    DEST_COUNTRY_NAME   STRING,
+    ORIGIN_COUNTRY_NAME STRING,
+    count LONG
+) USING JSON OPTIONS (path '/data/flight-data/json/2015-summary.json')
+
+CREATE TABLE flights_from_select USING parquet AS
+SELECT *
+FROM flights
+
+-- If we don't specify format via USING, we create a Hive compatible table:
+CREATE TABLE IF NOT EXISTS flights_from_select AS
+SELECT *
+FROM flights
+
+-- Writing a partitioned dataset:
+CREATE TABLE partitioned_flights USING parquet PARTITIONED BY (DEST_COUNTRY_NAME) AS
+SELECT DEST_COUNTRY_NAME,
+       ORIGIN_COUNTRY_NAME
+FROM flights
+```
+
+#### Creating External Tables
+
+Spark will manage the table’s metadata; however, the files are not managed by Spark at all:
+
+```sparksql
+CREATE EXTERNAL TABLE hive_flights
+(
+    DEST_COUNTRY_NAME   STRING,
+    ORIGIN_COUNTRY_NAME STRING
+)
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LOCATION '/data/flight-data-hive/'
+```
+
+#### Refreshing Table Metadata
+
+```sparksql
+REFRESH table partitioned_flights
+
+MSCK REPAIR TABLE partitioned_flights
+```
+
+#### Creating views
+
+```sparksql
+CREATE VIEW just_usa_view AS
+SELECT *
+FROM flights
+WHERE dest_country_name = 'United States'
+
+-- Like tables, you can create temporary views that are available only during the current session and are not
+-- registered to a database:
+CREATE
+TEMP VIEW just_usa_view_temp AS
+SELECT *
+FROM flights
+WHERE dest_country_name = 'United States'
+```
+
+
+## Chapter 11. Datasets
+
+- DataFrames are Datasets of type Row.
+- Datasets are a strictly Java Virtual Machine (JVM) language feature that work only with Scala and Java.
+- An Encoder is used to map the domain-specific type T to Spark’s internal type system.
+- When you use the Dataset API, for every row it touches, Spark converts the Spark Row  format to the object you 
+  specified (a Case Class or Java class).
+  This conversion slows down your operations but can provide more flexibility. You will notice a hit in performance 
+  but this is a far different order of magnitude from what you might see from something like a user-defined function 
+  (UDF) in Python, because the performance costs are not as extreme as switching programming languages.
+
+### When to use Datasets
+
+- When the operation(s) you would like to perform cannot be expressed using DataFrame manipulations:
+  You might have a large set of business logic that you’d like to encode in one specific function instead of in 
+  SQL or DataFrames.
+
+- When you want or need type-safety, and you’re willing to accept the cost of performance to achieve it:
+  Operations that are not valid for their types, say subtracting two string types, will fail at compilation time not 
+  at runtime. If correctness and bulletproof code is your highest priority, at the cost of some performance, this 
+  can be a great choice for you. This does not protect you from malformed data but can allow more elegance.
+
+### Creating Datasets
+
+#### In Java: Encoders
+
+```java
+public class Flight implements Serializable {
+  String DEST_COUNTRY_NAME;
+  String ORIGIN_COUNTRY_NAME;
+  Long DEST_COUNTRY_NAME;
+}
+
+Dataset<Flight> flights = spark.read.parquet("/data/flight-data/parquet/2010-summary.parquet/")
+        .as(Encoders.bean(Flight.class));
+```
+
+#### In Scala: Case Classes
+
+Case classes advantages:
+- **q** frees you from needing to keep track of where and when things are mutated.
+- **Comparison-by-value** allows you to compare instances as if they were primitive values —no more uncertainty 
+  regarding whether instances of a class are compared by value or reference.
+- **Pattern matching** simplifies branching logic, which leads to less bugs and more readable code.
+
+```scala
+case class Flight(DEST_COUNTRY_NAME: String, ORIGIN_COUNTRY_NAME: String, count: BigInt)
+
+val flightsDF = spark.read.parquet("/data/flight-data/parquet/2010-summary.parquet/")
+val flights = flightsDF.as[Flight]
+```
+
+### Actions
+
+#### Filtering
+
+You’ll notice in the following example that we’re going to create a function to define this filter.
+By specifying a function, we are forcing Spark to evaluate this function on every row in our Dataset. This can be 
+very resource intensive. For simple filters it is always preferred to write SQL expressions.
+
+```scala
+def originIsDestination(flight_row: Flight): Boolean = {
+return flight_row.ORIGIN_COUNTRY_NAME == flight_row.DEST_COUNTRY_NAME
+}
+
+flights.filter(flight_row => originIsDestination(flight_row)).first()
+```
+
+#### Mapping
+```scala
+val destinations = flights.map(f => f.DEST_COUNTRY_NAME)
+val localDestinations = destinations.take(5)
+```
+This might feel trivial and unnecessary; we can do the majority of this right on DataFrames. We in fact recommend 
+that you do this because you gain so many benefits from doing so. You will gain advantages like code generation that 
+are simply not possible with arbitrary user-defined functions.
+
+### Joins
+
+```scala
+case class FlightMetadata(count: BigInt, randomData: BigInt)
+
+val flightsMeta = spark.range(500).map(x => (x, scala.util.Random.nextLong))
+  .withColumnRenamed("_1", "count").withColumnRenamed("_2", "randomData")
+  .as[FlightMetadata]
+val flights2 = flights
+  .joinWith(flightsMeta, flights.col("count") === flightsMeta.col("count"))
+
+flights2.selectExpr("_1.DEST_COUNTRY_NAME")
+
+// Regular join work quite well too, ends up with a Dataframe
+val flights2 = flights.join(flightsMeta, Seq("count"))
+// No problem to join Datasets and Dataframes:
+val flights2 = flights.join(flightsMeta.toDF(), Seq("count"))
+```
+
+### Grouping and Aggregations
+
+```scala
+//With groupBy, you loose types:
+flights.groupBy("DEST_COUNTRY_NAME").count()
+// Instead:
+flights.groupByKey(x => x.DEST_COUNTRY_NAME).count()
+// Although this provides flexibility, it’s a trade-off because now we are introducing JVM types as
+// well as functions that cannot be optimized by Spark
+
+def grpSum(countryName: String, values: Iterator[Flight]) = {
+  values.dropWhile(_.count < 5).map(x => (countryName, x))
+}
+flights.groupByKey(x => x.DEST_COUNTRY_NAME).flatMapGroups(grpSum).show(5)
+```
+
+
+
+# Part IV. Production Applications
+
+## Chapter 15. How Spark runs on a cluster
