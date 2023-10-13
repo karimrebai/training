@@ -1122,27 +1122,26 @@ FROM flights
 WHERE dest_country_name = 'United States'
 ```
 
-
 ## Chapter 11. Datasets
 
 - DataFrames are Datasets of type Row.
 - Datasets are a strictly Java Virtual Machine (JVM) language feature that work only with Scala and Java.
 - An Encoder is used to map the domain-specific type T to Spark’s internal type system.
-- When you use the Dataset API, for every row it touches, Spark converts the Spark Row  format to the object you 
+- When you use the Dataset API, for every row it touches, Spark converts the Spark Row format to the object you
   specified (a Case Class or Java class).
-  This conversion slows down your operations but can provide more flexibility. You will notice a hit in performance 
-  but this is a far different order of magnitude from what you might see from something like a user-defined function 
+  This conversion slows down your operations but can provide more flexibility. You will notice a hit in performance
+  but this is a far different order of magnitude from what you might see from something like a user-defined function
   (UDF) in Python, because the performance costs are not as extreme as switching programming languages.
 
 ### When to use Datasets
 
 - When the operation(s) you would like to perform cannot be expressed using DataFrame manipulations:
-  You might have a large set of business logic that you’d like to encode in one specific function instead of in 
+  You might have a large set of business logic that you’d like to encode in one specific function instead of in
   SQL or DataFrames.
 
 - When you want or need type-safety, and you’re willing to accept the cost of performance to achieve it:
-  Operations that are not valid for their types, say subtracting two string types, will fail at compilation time not 
-  at runtime. If correctness and bulletproof code is your highest priority, at the cost of some performance, this 
+  Operations that are not valid for their types, say subtracting two string types, will fail at compilation time not
+  at runtime. If correctness and bulletproof code is your highest priority, at the cost of some performance, this
   can be a great choice for you. This does not protect you from malformed data but can allow more elegance.
 
 ### Creating Datasets
@@ -1151,20 +1150,21 @@ WHERE dest_country_name = 'United States'
 
 ```java
 public class Flight implements Serializable {
-  String DEST_COUNTRY_NAME;
-  String ORIGIN_COUNTRY_NAME;
-  Long DEST_COUNTRY_NAME;
+    String DEST_COUNTRY_NAME;
+    String ORIGIN_COUNTRY_NAME;
+    Long DEST_COUNTRY_NAME;
 }
 
-Dataset<Flight> flights = spark.read.parquet("/data/flight-data/parquet/2010-summary.parquet/")
-        .as(Encoders.bean(Flight.class));
+    Dataset<Flight> flights = spark.read.parquet("/data/flight-data/parquet/2010-summary.parquet/")
+            .as(Encoders.bean(Flight.class));
 ```
 
 #### In Scala: Case Classes
 
 Case classes advantages:
+
 - **q** frees you from needing to keep track of where and when things are mutated.
-- **Comparison-by-value** allows you to compare instances as if they were primitive values —no more uncertainty 
+- **Comparison-by-value** allows you to compare instances as if they were primitive values —no more uncertainty
   regarding whether instances of a class are compared by value or reference.
 - **Pattern matching** simplifies branching logic, which leads to less bugs and more readable code.
 
@@ -1180,24 +1180,26 @@ val flights = flightsDF.as[Flight]
 #### Filtering
 
 You’ll notice in the following example that we’re going to create a function to define this filter.
-By specifying a function, we are forcing Spark to evaluate this function on every row in our Dataset. This can be 
+By specifying a function, we are forcing Spark to evaluate this function on every row in our Dataset. This can be
 very resource intensive. For simple filters it is always preferred to write SQL expressions.
 
 ```scala
 def originIsDestination(flight_row: Flight): Boolean = {
-return flight_row.ORIGIN_COUNTRY_NAME == flight_row.DEST_COUNTRY_NAME
+  return flight_row.ORIGIN_COUNTRY_NAME == flight_row.DEST_COUNTRY_NAME
 }
 
 flights.filter(flight_row => originIsDestination(flight_row)).first()
 ```
 
 #### Mapping
+
 ```scala
 val destinations = flights.map(f => f.DEST_COUNTRY_NAME)
 val localDestinations = destinations.take(5)
 ```
-This might feel trivial and unnecessary; we can do the majority of this right on DataFrames. We in fact recommend 
-that you do this because you gain so many benefits from doing so. You will gain advantages like code generation that 
+
+This might feel trivial and unnecessary; we can do the majority of this right on DataFrames. We in fact recommend
+that you do this because you gain so many benefits from doing so. You will gain advantages like code generation that
 are simply not possible with arbitrary user-defined functions.
 
 ### Joins
@@ -1235,8 +1237,192 @@ def grpSum(countryName: String, values: Iterator[Flight]) = {
 flights.groupByKey(x => x.DEST_COUNTRY_NAME).flatMapGroups(grpSum).show(5)
 ```
 
-
-
 # Part IV. Production Applications
 
 ## Chapter 15. How Spark runs on a cluster
+
+### The Architecture of a Spark Application
+
+- The Spark driver
+
+It is the controller of the execution of a Spark Application and maintains all of the state of the Spark cluster.
+It must interface with the cluster manager in order to actually get physical resources and launch executors. At the
+end of the day, this is just a process on a physical machine that is responsible for maintaining the state of the
+application running on the cluster.
+
+- The Spark executors
+  Spark executors are the processes that perform the tasks assigned by the Spark driver. Executors have one core
+  responsibility: take the tasks assigned by the driver, run them, and report back their state (success or failure)
+  and results. Each Spark Application has its own separate executor processes.
+
+- The cluster manager
+  The cluster manager is responsible for maintaining a cluster of machines that will run your Spark Application(s).
+  Somewhat confusingly, a cluster manager will have its own “driver ” (sometimes called master) and “worker”
+  abstractions. The core difference is that these are tied to physical machines rather than processes.
+
+![cluster_architecture.png](images%2Fcluster_architecture.png)
+
+#### Execution modes
+
+- Cluster mode: The cluster manager then launches the driver process on a worker node inside the cluster, in
+  addition to the executor processes. This means that the cluster manager is responsible for maintaining all Spark
+  Application–related processes. The cluster manager places the driver on a worker node and the executors on other
+  worker nodes.
+- Client mode: Client mode is nearly the same as cluster mode except that the Spark driver remains on the client
+  machine that submitted the application. This means that the client machine is responsible for maintaining the
+  Spark driver process, and the cluster manager maintains the executor processses. Driver is in a machine that is not
+  colocated on the cluster. These machines are commonly referred to as gateway machines or edge nodes.
+- Local mode: Local mode is a significant departure from the previous two modes: it runs the entire Spark
+  Application on a single machine. It achieves parallelism through threads on that single machine.
+
+### The Life Cycle of a Spark Application (Outside Spark)
+
+#### Client Request
+
+The first step is for you to submit an actual application. This will be a pre-compiled JAR or library. At this point,
+you are executing code on your local machine and you’re going to make a request to the cluster manager driver node.
+Here, we are explicitly asking for resources for the Spark driver process only.
+
+```shell
+./bin/spark-submit \
+--class <main-class> \
+--master <master-url> \
+--deploy-mode cluster \
+--conf <key>=<value> \
+... # other options
+<application-jar> \
+[application-arguments]
+```
+
+#### Launch
+
+Now that the driver process has been placed on the cluster, it begins running user code. This code must include a
+SparkSession that initializes a Spark cluster (e.g., driver + executors). The SparkSession will subsequently
+communicate with the cluster manager, asking it to launch Spark executor processes across the cluster.
+The cluster manager responds by launching the executor processes (assuming all goes well) and sends the relevant
+information about their locations to the driver process.
+
+#### Execution
+
+The driver and the workers communicate among themselves, executing code and moving data around. The driver schedules
+tasks onto each worker, and each worker responds with the status of those tasks and success or failure.
+
+#### Completion
+
+After a Spark Application completes, the driver processs exits with either success or failure. The cluster manager then
+shuts down the executors in that Spark cluster for the driver. At this point, you can see the success or failure of
+the Spark Application by asking the cluster manager for this information.
+
+### The Life Cycle of a Spark Application (Inside Spark)
+
+Each application is made up of one or more Spark jobs. Spark jobs within an application are executed serially
+(unless you use threading to launch multiple actions in parallel).
+
+#### The SparkSession
+
+The first step of any Spark Application is creating a SparkSession:
+
+```scala
+val spark = SparkSession.builder()
+  .appName("Databricks Spark Example")
+  .config("spark.sql.warehouse.dir", "/user/hive/warehouse")
+  .getOrCreate()
+```
+
+A SparkContext object within the SparkSession represents the connection to the Spark cluster. This class is how you
+communicate with some of Spark’s lower-level APIs, such as RDDs. Through a SparkContext, you can create RDDs,
+accumulators, and broadcast variables, and you can run code on the cluster.
+
+#### Logical Instructions
+
+Spark code essentially consists of transformations and actions.
+Understanding how we take declarative instructions like DataFrames and convert them into physical execution plans is
+an important step to understanding how Spark runs on a cluster.
+
+```python
+df1 = spark.range(2, 10000000, 2)
+df2 = spark.range(2, 10000000, 4)
+step1 = df1.repartition(5)
+step12 = df2.repartition(6)
+step2 = step1.selectExpr("id * 5 as id")
+step3 = step2.join(step12, ["id"])
+step4 = step3.selectExpr("sum(id)")
+step4.collect()  # 2500000000000
+step4.explain()
+```
+
+When you run this code, we can see that your action triggers one complete Spark job. Let’s take a look at the
+explain plan to ground our understanding of the physical execution plan. We can access this information on the SQL
+tab in the Spark UI, as well:
+![physical_plan.png](images%2Fphysical_plan.png)
+
+#### A Spark Job
+
+In general, there should be one Spark job for one action. Actions always return results.
+Each job breaks down into a series of stages, **the number of which depends on how many shuffle operations need to
+take place**.
+This job breaks down into the following stages and tasks:
+
+- Stage 1 with 8 Tasks
+- Stage 2 with 8 Tasks
+- Stage 3 with 6 Tasks
+- Stage 4 with 5 Tasks
+- Stage 5 with 200 Tasks
+- Stage 6 with 1 Task
+
+#### Stages
+
+Stages in Spark represent groups of tasks that can be executed together to compute the same operation on multiple
+machines. In general, Spark will try to pack as much work as possible (i.e., as many transformations as possible
+inside your job) into the same stage, but the engine starts new stages after operations called shuffles. A shuffle
+represents a physical repartitioning of the data—for example, sorting a DataFrame, or grouping data that was loaded
+from a file by key (which requires sending records with the same key to the same node).
+
+In the job we looked at earlier, the first two stages correspond to the range that you perform in order to create 
+your DataFrames. By default when you create a DataFrame with range, it has eight partitions. The next step is the 
+repartitioning. This changes the number of partitions by shuffling the data. These DataFrames are shuffled into six 
+partitions and five partitions, corresponding to the number of tasks in stages 3 and 4.
+
+Stages 3 and 4 perform on each of those DataFrames and the end of the stage represents the join (a shuffle). 
+Suddenly, we have 200 tasks. This is because of a Spark SQL configuration. The spark.sql.shuffle.partitions default 
+value is 200, which means that when there is a shuffle performed during execution, it outputs 200 shuffle partitions 
+by default. You can change this value, and the number of output partitions will change.
+
+A good rule of thumb is that the number of partitions should be larger than the number of executors on your cluster, 
+potentially by multiple factors depending on the workload. If you are running code on your local machine, it would 
+behoove you to set this value lower because your local machine is unlikely to be able to execute that number of 
+tasks in parallel. This is more of a default for a cluster in which there might be many more executor cores to use. 
+Regardless of the number of partitions, that entire stage is computed in parallel. The final result aggregates those
+partitions individually, brings them all to a single partition before finally sending the final result to the driver.
+
+#### Tasks
+Stages in Spark consist of tasks. Each task corresponds to a combination of blocks of data and a set of 
+transformations that will run on a single executor. If there is one big partition in our dataset, we will have one 
+task. If there are 1,000 little partitions, we will have 1,000 tasks that can be executed in parallel. A task is 
+just a unit of computation applied to a unit of data (the partition). Partitioning your data into a greater number 
+of partitions means that more can be executed in parallel. This is not a panacea, but it is a simple place to begin 
+with optimization.
+
+### Execution Details
+
+#### Pipelining
+Spark performs as many steps as it can at one point in time before writing data to memory or disk.
+With pipelining, any sequence of operations that feed data directly into each other, without needing to move it 
+across nodes, is collapsed into a single stage of tasks that do all the operations together:
+Ex: map -> filter -> map
+This pipelined version of the computation is much faster than writing the intermediate results to memory or disk 
+after each step.
+
+#### Shuffle Persistence
+When Spark needs to run an operation that has to move data across nodes, such as a reduce-by-key operation (where input
+data for each key needs to first be brought together from many nodes), the engine can’t perform pipelining anymore, 
+and instead it performs a cross-network shuffle. Spark always executes shuffles by first having the “source” tasks 
+(those sending data) write shuffle files to their local disks during their execution stage. Then, the stage that 
+does the grouping and reduction launches and runs tasks that fetch their corresponding records from each shuffle 
+file and performs that computation (e.g., fetches and processes the data for a specific range of keys). Saving the 
+shuffle files to disk lets Spark run this stage later in time than the source stage (e.g., if there are not enough 
+executors to run both at the same time), and also lets the engine re-launch reduce tasks on failure without 
+rerunning all the input tasks.
+
+
+## Chapter 16. Developing Spark Applications
