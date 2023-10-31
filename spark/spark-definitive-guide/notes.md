@@ -1425,4 +1425,66 @@ executors to run both at the same time), and also lets the engine re-launch redu
 rerunning all the input tasks.
 
 
-## Chapter 16. Developing Spark Applications
+## Chapter 17. Deploying Spark
+
+### Where to Deploy Your Cluster to Run Spark Applications
+
+#### On-Premises Cluster Deployments
+
+If you make your cluster too small, it will be hard to launch the occasional very large analytics query or training 
+job for a new machine learning model, whereas if you make it large, you will have resources sitting idle.
+
+Second, for on-premises clusters, you need to select and operate your own storage system, such as a Hadoop file system
+or scalable key-value store. This includes setting up georeplication and disaster recovery if required.
+
+#### Spark in the Cloud
+
+- Resources can be launched and shut down elastically, so you can run that occasional “monster” job that takes
+  hundreds of machines for a few hours without having to pay for them all the time. Even for normal operation, you 
+  can choose a different type of machine and cluster size for each application to optimize its cost performance— for 
+  example, launch machines with Graphics Processing Units (GPUs) just for your deep learning jobs.
+
+- Public clouds include low-cost, georeplicated storage that makes it easier to manage large amounts of data.
+
+- Many companies looking to migrate to the cloud imagine they’ll run their applications in the same way that they 
+  run their on-premises clusters.
+  All major cloud providers include managed Hadoop clusters, which provides HDFS for storage as well as Spark.
+  This is actually not a great way to run Spark in the cloud, however, because by using a fixed-size cluster and 
+  file system, you are not going to be able to take advantage of elasticity. Instead, it is generally a better idea 
+  to use global storage systems that are decoupled from a specific cluster, such as Amazon S3, Azure Blob Storage, 
+  or Google Cloud Storage and spin up machines dynamically for each Spark workload.
+  Basically, keep in mind that running Spark in the cloud need not mean migrating an on-premises installation to 
+  virtual machines: you can run Spark natively against cloud storage to take full advantage of the cloud’s 
+  elasticity, cost-saving benefit, and management tools without having to manage an on-premise computing stack 
+  within your cloud environment.
+
+#### Application Scheduling
+
+- Cluster managers provide the facilities for scheduling across Spark applications. Within each Spark application, 
+multiple jobs (i.e., Spark actions) may be running concurrently if they were submitted by different threads.
+
+- If multiple users need to share your cluster and run different Spark Applications, there are
+  different options to manage allocation, depending on the cluster manager:
+  - The simplest option, available on all cluster managers, is static partitioning of resources. With this approach, 
+    each application is given a maximum amount of resources that it can use, and holds onto those resources for the 
+    entire duration.
+  - In addition, dynamic allocation can be turned on to let applications scale up and down dynamically based on 
+    their current number of pending tasks. This means that your application can give resources back to the cluster if
+    they are no longer used, and request them again later when there is demand.
+    This feature is disabled by default
+    There are two requirements for using this feature. First, your application must set spark.dynamicAllocation.
+    enabled to true. Second, you must set up an external shuffle service on each worker node in the same cluster and 
+    set spark.shuffle.service.enabled to true in your application. The purpose of the external shuffle service is to 
+    allow executors to be removed without deleting shuffle files written by them.
+
+### Miscellaneous considerations
+
+- Depending on your workload, it might be worth considering using Spark’s external shuffle service. Typically Spark 
+stores shuffle blocks (shuffle output) on a local disk on that particular node. An external shuffle service allows 
+for storing those shuffle blocks so that they are available to all executors, meaning that you can arbitrarily kill 
+executors and still have their shuffle outputs available to other applications.
+
+
+## Chapter 18. Monitoring and Debugging
+
+
