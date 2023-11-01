@@ -1487,4 +1487,91 @@ executors and still have their shuffle outputs available to other applications.
 
 ## Chapter 18. Monitoring and Debugging
 
+### Debugging and Spark First Aid
+
+#### Slow Tasks or Stragglers
+
+This issue is quite common when optimizing applications, and can occur either due to work not being evenly 
+distributed across your machines (“skew”), or due to one of your machines being slower than the others (e.g., due to 
+a hardware problem).
+
+One particularly common case is that you use a group-by-key operation and one of the keys just has more data than 
+others. In this case, when you look at the Spark UI, you might see that the shuffle data for some nodes is much 
+larger than for others.
+
+- Try increasing the number of partitions to have less data per partition.
+- Try repartitioning by another combination of columns. For example, stragglers can come up when you partition by a 
+  skewed ID column, or a column where many values are null. In the latter case, it might make sense to first filter 
+  out the null values.
+- Try increasing the memory allocated to your executors if possible.
+
+#### Slow Aggregations
+
+Unfortunately, this issue can’t always be solved. Sometimes, the data in your job just has some skewed keys, and the 
+operation you want to run on them needs to be slow.
+
+- Increasing the number of partitions, prior to an aggregation, might help by reducing the number of different keys 
+  processed in each task.
+- Increasing executor memory can help. If a single key has lots of data, this will allow its executor to spill to 
+  disk less often and finish faster, although it may still be much slower than executors processing other keys.
+- Ensuring that all filters and SELECT statements that can be are above the aggregation can help to ensure that 
+  you’re working only on the data that you need to be working on and nothing else. Spark’s query optimizer will 
+  automatically do this for the structured APIs.
+- Ensure null values are represented correctly (using Spark’s concept of null) and not as default value like " " or 
+  "EMPTY". Spark often optimizes for skipping nulls early in the job when possible, but it can’t do so for your 
+  own placeholder values.
+
+#### Slow Joins
+
+Joins and aggregations are both shuffles, so they share some of the same general symptoms as well as treatments.
+
+- Many joins can be optimized (manually or automatically) to other types of joins.
+- Experimenting with different join orderings can really help speed up jobs, especially if some of those joins 
+  filter out a large amount of data.
+- Partitioning a dataset prior to joining can be very helpful for reducing data movement across the cluster, 
+  especially if the same dataset will be used in multiple join operations.
+- Slow joins can also be caused by data skew. There’s not always a lot you can do here, but sizing up the Spark 
+  application and/or increasing the size of executors can help, as described in earlier sections.
+- Ensuring that all filters and select statements that can be are above the join can help to ensure that you’re 
+  working only on the data that you need for the join.
+
+#### Slow Reads and Writes
+
+Slow I/O can be difficult to diagnose, especially with networked file systems.
+
+- Turning on speculation (set spark.speculation to true) can help with slow reads and writes. This will launch 
+  additional tasks with the same operation in an attempt to see whether it’s just some transient issue in the first 
+  task. Speculation is a powerful tool and works well with consistent file systems. However, it can cause duplicate 
+  data writes with some eventually consistent cloud services, such as Amazon S3, so check whether it is supported by 
+  the storage system connector you are using.
+- Ensuring sufficient network connectivity can be important—your Spark cluster may simply not have enough total 
+  network bandwidth to get to your storage system.
+
+#### Driver OutOfMemoryError or Driver Unresponsive
+
+This is usually a pretty serious issue because it will crash your Spark Application. It often happens due to 
+collecting too much data back to the driver, making it run out of memory.
+
+- Your code might have tried to collect an overly large dataset to the driver node using operations such as collect.
+- You might be using a broadcast join where the data to be broadcast is too big. Use Spark’s maximum broadcast join 
+  configuration to better control the size it will broadcast.
+- A long-running application generated a large number of objects on the driver and is unable to release them. Java’s 
+  jmap tool can be useful to see what objects are filling most of the memory of your driver JVM by printing a 
+  histogram of the heap.
+- Increase the driver’s memory allocation if possible to let it work with more data.
+
+#### Executor OutOfMemoryError or Executor Unresponsive
+
+- Try increasing the memory available to executors and the number of executors.
+- Try increasing PySpark worker size via the relevant Python configurations.
+- Look for garbage collection error messages in the executor logs. Some of the tasks that are running, especially if 
+  you’re using UDFs, can be creating lots of objects that need to be garbage collected. Repartition your data to 
+  increase parallelism, reduce the amount of records per task, and ensure that all executors are getting the same 
+  amount of work.
+- Ensure that null values are handled correctly (that you’re using null) and not some default value like " " or "EMPTY".
+- This is more likely to happen with RDDs or with Datasets because of object instantiations. Try using fewer UDFs 
+  and more of Spark’s structured operations when possible.
+
+
+## Chapter 19. Performance Tuning
 
