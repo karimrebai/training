@@ -1575,3 +1575,130 @@ collecting too much data back to the driver, making it run out of memory.
 
 ## Chapter 19. Performance Tuning
 
+### Indirect Performance Enhancements
+
+#### Design Choices
+
+- Scala versus Java versus Python versus R
+  - If you want to perform some single-node machine learning after performing a large ETL job, we might recommend 
+    running your ETL code as SparkR code and then using R’s massive machine learning ecosystem to run your 
+    single-node machine learning algorithms.
+  - Things do get a bit more complicated when you need to include custom transformations that cannot be created in 
+    the Structured APIs. These might manifest themselves as RDD transformations or UDFs. If  you’re going to do this,
+    R and Python are not necessarily the best choice simply because of how this is actually executed.
+  - We find that using Python for the majority of the application, and porting some of it to Scala or writing 
+    specific UDFs in Scala as your application evolves, is a powerful technique—it allows for a nice balance between 
+    overall usability, maintainability, and performance.
+- DataFrames versus SQL versus Datasets versus RDDs
+  - Across all languages, DataFrames, Datasets, and SQL are equivalent in speed. This means that if you’re using
+    DataFrames in any of these languages, performance is equal. However, if you’re going to be defining UDFs, you’ll 
+    take a performance hit writing those in Python or R, and to some extent a lesser  performance hit in Java and Scala.
+  - Although all DataFrame, SQL, and Dataset code compiles down to RDDs, Spark’s optimization engine will write 
+    “better” RDD code than you can manually and certainly do it with orders of magnitude less effort.
+
+#### Object Serialization in RDDs
+
+When you’re working with custom data types, you’re going to want to serialize them using Kryo because it’s both more 
+compact and much more efficient than Java serialization. However, this does come at the inconvenience of registering 
+the classes that you will be using in your application.
+
+#### Cluster Configurations
+
+- Dynamic allocation
+  Spark provides a mechanism to dynamically adjust the resources your application occupies based on the workload. 
+  This means that your application can give resources back to the cluster if they are no longer used, and request 
+  them again later when there is demand. This feature is particularly useful if multiple applications share 
+  resources in your Spark cluster.
+
+#### Scheduling
+
+Scheduling optimizations do involve some research and experimentation, and unfortunately there are not super-quick 
+fixes beyond setting spark.scheduler.mode to FAIR to allow better sharing of resources across multiple users, or 
+setting --max-executor-cores, which specifies the maximum number of executor cores that your application will need. 
+Specifying this value can ensure that your application does not take up all the resources on the cluster.
+
+#### Data at Rest
+
+Making sure that you’re storing your data for effective reads later on is absolutely essential to successful big data
+projects. This involves choosing your storage system, choosing your data format, and taking advantage of features 
+such as data partitioning in some storage formats.
+
+- File-based long-term data storage
+  - One of the easiest ways to optimize your Spark jobs is to follow best practices when storing data and choose the 
+    most efficient storage format possible.
+  - Generally you should always favor structured, binary types to store your data, especially when you’ll be 
+    accessing it frequently.
+  - The most efficient file format you can generally choose is Apache Parquet. Parquet stores data in binary files 
+    with column-oriented storage, and also tracks some statistics about each file that make it possible to quickly 
+    skip data not needed for a query.
+
+- Splittable file types and compression
+  - Whatever file format you choose, you should make sure it is “splittable”, which means that different tasks can 
+    read different parts of the file in parallel. When read in the file, all cores are able to do part of the work.
+    If the file is not splittable—say something like a malformed JSON file—we’re going to need to read in the entire 
+    file on a single machine, greatly reducing parallelism.
+  - The main place splittability comes in is compression formats. A ZIP file or TAR archive cannot be split, which 
+    means that even if we have 10 files in a ZIP file and 10 cores, only one core can
+    read in that data because we cannot parallelize access to the ZIP file. This is a poor use of resources. In 
+    contrast, files compressed using gzip, bzip2, or lz4 are generally splittable if they were written by a parallel 
+    processing framework like Hadoop or Spark. For your own input data, the simplest way to make it splittable is to 
+    upload it as separate files, ideally each no larger than a few hundred megabytes.
+
+- Table partitioning
+  It refers to storing files in separate directories based on a key, such as the date field in the data. Storage 
+  managers like Apache Hive support this concept, as do many of Spark’s built-in data sources. Partitioning your 
+  data correctly allows Spark to skip many irrelevant files when it only requires data with a specific range of keys.
+  For instance, if users frequently filter by “date” or “customerId” in their queries, partition your data by those 
+  columns. This will greatly reduce the amount of data that end users must read by most queries, and therefore 
+  dramatically increase speed.
+  The one downside of partitioning, however, is that if you partition at too fine a granularity, it can result in 
+  many small files, and a great deal of overhead trying to list all the files in the storage system.
+
+- Bucketing
+  Bucketing your data allows Spark to “pre-partition” data according to how joins or aggregations are likely to 
+  be performed by readers. This can improve performance and stability because data can be consistently distributed 
+  across partitions as opposed to skewed into just one or two. For instance, if joins are frequently performed on a 
+  column immediately after a read, you can use bucketing to ensure that the data is well partitioned according to 
+  those values. This can help prevent a shuffle before a join and therefore help speed up data access.
+
+- The number of files
+  If there are lots of small files, you’re going to pay a price listing and fetching each of those individual files.
+  Having lots of small files is going to make the scheduler work much harder to locate the data and launch all of 
+  the read tasks. This can increase the network and scheduling overhead of the job. Having fewer large files eases 
+  the pain off the scheduler but it will also make tasks run longer. In this case, though, you can always launch 
+  more tasks than there are input files if you want more parallelism—Spark will split each file across multiple tasks
+  assuming you are using a splittable format.
+  In general, we recommend sizing your files so that they each contain at least a few tens of megatbytes of data.
+  One way of controlling data partitioning when you write your data is through the option maxRecordsPerFile.
+
+#### Memory Pressure and Garbage Collection
+
+During the course of running Spark jobs, the executor or driver machines may struggle to complete their tasks
+because of a lack of sufficient memory or “memory pressure.” This may occur when an application takes up too much 
+memory during execution or when garbage collection runs too frequently or is slow to run as large numbers of objects 
+are created in the JVM and subsequently garbage collected as they are no longer used. One strategy for easing this
+issue is to ensure that you’re using the Structured APIs as much as possible. These will not only increase the 
+efficiency with which your Spark jobs will execute, but it will also greatly reduce memory pressure because JVM 
+objects are never realized and Spark SQL simply performs the computation on its internal format.
+
+- Measuring the impact of garbage collection
+  The first step in garbage collection tuning is to gather statistics on how frequently garbage collection occurs 
+  and the amount of time it takes. You can do this by adding -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps
+  to Spark’s JVM options using the spark.executor.extraJavaOptions configuration parameter.
+
+- Garbage collection tuning
+  - Java heap space is divided into two regions: Young and Old. The Young generation is meant to hold short-lived 
+  objects whereas the Old generation is intended for objects with longer lifetimes. The Young generation is further
+  divided into three regions: Eden, Survivor1, and Survivor2.
+  - The goal of garbage collection tuning in Spark is to ensure that only long-lived cached datasets are stored in the 
+  Old generation and that the Young generation is sufficiently sized to store all short-lived objects.
+  - If a full garbage collection is invoked multiple times before a task completes, it means that there isn’t enough 
+  memory available for executing tasks, so you should decrease the amount of memory Spark uses for caching
+  (spark.memory.fraction).
+  - If there are too many minor collections but not many major garbage collections, allocating more memory for Eden 
+    would help. You can set the size of the Eden to be an over-estimate of how much memory each task will need. If 
+    the size of Eden is determined to be E, you can set the size of the Young generation using the option -Xmn=4/3*E.
+
+
+### Direct Performance Enhancements
+
