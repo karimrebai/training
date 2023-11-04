@@ -1702,3 +1702,90 @@ objects are never realized and Spark SQL simply performs the computation on its 
 
 ### Direct Performance Enhancements
 
+#### Parallelism
+The first thing you should do whenever trying to speed up a specific stage is to increase the degree of parallelism. 
+In general, we recommend having at least two or three tasks per CPU core in your cluster if the stage processes a 
+large amount of data. You can set this via the spark.default.parallelism property as well as tuning the 
+spark.sql.shuffle.partitions according to the number of cores in your cluster.
+
+#### Improved Filtering
+Another frequent source of performance enhancements is moving filters to the earliest part of your Spark job that 
+you can. Sometimes, these filters can be pushed into the data sources themselves and this means that you can avoid 
+reading and working with data that is irrelevant to your end result. Enabling partitioning and bucketing also helps 
+achieve this.
+
+#### Repartitioning and Coalescing
+Repartition calls can incur a shuffle. However, doing some can optimize the overall execution of a job by balancing 
+data across the cluster, so they can be worth it. In general, you should try to shuffle the least amount of data 
+possible. For this reason, if you’re reducing the number of overall partitions in a DataFrame or RDD, first try 
+coalesce method, which will not perform a shuffle but rather merge partitions on the same node into one partition. 
+The slower repartition method will also shuffle data across the network to achieve even load balancing. Repartitions can
+be particularly helpful when performing joins or prior to a cache call. Remember that repartitioning is not free, 
+but it can improve overall application performance and parallelism of your jobs.
+
+#### User-Defined Functions (UDFs)
+In general, avoiding UDFs is a good optimization opportunity. UDFs are expensive because they force representing 
+data as objects in the JVM and sometimes do this multiple times per record in a query. You should try to use the 
+Structured APIs as much as possible to perform your manipulations simply because they are going to perform the 
+transformations in a much more efficient manner than you can do in a high-level language.
+
+#### Temporary Data Storage (Caching)
+In applications that reuse the same datasets over and over, one of the most useful optimizations is caching. Caching 
+will place a DataFrame, table, or RDD into temporary storage (either memory or disk) across the executors in your 
+cluster, and make subsequent reads faster. Although caching might sound like something we should do all the time, 
+it’s not always a good thing to do. That’s because caching data incurs a serialization, deserialization, and storage 
+cost.
+
+Caching is a lazy operation, meaning that things will be cached only as they are accessed.
+
+The cache command in Spark always places data in memory by default, caching only part of the dataset if the 
+cluster’s total memory is full. For more control, there is also a persist method that takes a StorageLevel object to 
+specify where to cache the data: in memory, on disk, or both.
+
+- MEMORY_ONLY (default): Store RDD as deserialized Java objects in the JVM. If the RDD does not fit in memory, some 
+  partitions will not be cached and will be recomputed on the fly each time they’re needed.
+
+- MEMORY_AND_DISK: Store RDD as deserialized Java objects in the JVM. If the RDD does not fit in memory, store the 
+  partitions that don’t fit on disk, and read them from there when they’re needed.
+
+- MEMORY_ONLY_SER (Java and Scala): Store RDD as serialized Java objects. This is generally more space-efficient 
+  than deserialized objects, especially when using a fast serializer, but more CPU-intensive to read.
+
+- MEMORY_AND_DISK_SER (Java and Scala): Similar to MEMORY_ONLY_SER , but spill partitions that don’t fit in memory 
+  to disk instead of recomputing them on the fly each time they’re needed.
+
+- DISK_ONLY: Store the RDD partitions only on disk.
+
+- MEMORY_ONLY_2, MEMORY_AND_DISK_2 etc: Same as the previous levels, but replicate each partition on 2 cluster nodes.
+
+- OFF_HEAP: Similar to MEMORY_ONLY_SER, but store the data in off-heap memory.
+
+#### Joins
+- Equi-joins are the easiest for Spark to optimize at this point and therefore should be preferred wherever possible.
+
+- Trying to use the filtering ability of inner joins by changing join ordering can yield large speedups.
+
+- Using broadcast join hints can help Spark make intelligent planning decisions when it comes to creating query plans.
+
+- Collecting statistics on tables prior to a join will help Spark make intelligent join decisions.
+
+#### Aggregations
+For the most part, there are not too many ways that you can optimize specific aggregations beyond filtering data 
+before the aggregation having a sufficiently high number of partitions.
+However, if you’re using RDDs, controlling exactly how these aggregations are performed (e.g., using reduceByKey 
+when possible over groupByKey) can be very helpful and improve the speed and stability of your code.
+
+#### Broadcast Variables
+The basic premise is that if some large piece of data will be used across multiple UDF calls in your program, you 
+can broadcast it to save just a single read-only copy on each node and avoid re-sending this data with each job.
+For example, broadcast variables may be useful to save a lookup table or a machine learning model.
+You can also broadcast arbitrary objects by creating broadcast variables using your SparkContext, and then simply 
+refer to those variables in your tasks.
+
+
+### Conclusion
+There are many different ways to optimize the performance of your Spark Applications and make them run faster and at 
+a lower cost. In general, the main things you’ll want to prioritize are:
+1) Reading as little data as possible through partitioning and efficient binary formats.
+2) Making sure there is sufficient parallelism and no data skew on the cluster using partitioning.
+3) Using high-level APIs such as the Structured APIs as much as possible to take already optimized code
