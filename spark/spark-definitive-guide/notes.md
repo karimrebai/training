@@ -717,6 +717,13 @@ functions.
 ```scala
 val dfWithDate = df.withColumn("date", to_date(col("InvoiceDate"), "MM/d/yyyy H:mm"))
 dfWithDate.createOrReplaceTempView("dfWithDate")
+val windowSpec = Window
+        .partitionBy("CustomerId", "date")
+        .orderBy(col("Quantity").desc).rowsBetween(Window.unboundedPreceding, Window.currentRow)
+val maxPurchaseQuantity = max(col("Quantity")).over(windowSpec)
+val purchaseDenseRank = dense_rank().over(windowSpec)
+val purchaseRank = rank().over(windowSpec)
+
 ```
 
 ## Chapter 8. Joins
