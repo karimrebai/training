@@ -734,8 +734,8 @@ val purchaseRank = rank().over(windowSpec)
 - Outer joins (keep rows with keys in either the left or right datasets)
 - Left outer joins (keep rows with keys in the left dataset)
 - Right outer joins (keep rows with keys in the right dataset)
-- Left semi joins (keep the rows in the left, and only the left, dataset where the key appears in the right dataset)
-- Left anti joins (keep the rows in the left, and only the left, dataset where they do not appear in the right
+- Left semi joins (keep the rows in the left, and only the left dataset where the key appears in the right dataset)
+- Left anti joins (keep the rows in the left, and only the left dataset where they do not appear in the right
   dataset)
 - Natural joins (perform a join by implicitly matching the columns between the two datasets with the same names)
 - Cross (or Cartesian) joins (match every row in the left dataset with every row in the right dataset)
