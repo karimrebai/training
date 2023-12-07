@@ -1023,8 +1023,7 @@ available executors in parallel.
 The number of files or data written is dependent on the number of partitions the DataFrame has at the time you write
 out the data.
 
-- Partitioning
-  Partitioning is a tool that allows you to control what data is stored (and where) as you write it. When you write a
+- Partitioning is a tool that allows you to control what data is stored (and where) as you write it. When you write a
   file
   to a partitioned directory (or table), you basically encode a column as a folder. What this allows you to do is skip
   lots
@@ -1036,8 +1035,7 @@ csvFile.limit(10).write.mode("overwrite").partitionBy("DEST_COUNTRY_NAME")
   .save("/tmp/partitioned-files.parquet")
 ```
 
-- Bucketing
-  Bucketing is another file organization approach with which you can control the data that is specifically written
+- Bucketing is another file organization approach with which you can control the data that is specifically written
   to each file. This can help avoid shuffles later when you go to read the data because data with the same bucket ID
   will all be grouped together into one physical partition. This means that the data is prepartitioned according to
   how you expect to use that data later on, meaning you can avoid expensive shuffles when joining or aggregating.
@@ -1237,7 +1235,7 @@ public class Flight implements Serializable {
 
 Case classes advantages:
 
-- **q** frees you from needing to keep track of where and when things are mutated.
+- **Immutability** frees you from needing to keep track of where and when things are mutated.
 - **Comparison-by-value** allows you to compare instances as if they were primitive values —no more uncertainty
   regarding whether instances of a class are compared by value or reference.
 - **Pattern matching** simplifies branching logic, which leads to less bugs and more readable code.
