@@ -726,6 +726,73 @@ val purchaseRank = rank().over(windowSpec)
 
 ```
 
+### Grouping Sets
+Thus far in this chapter, we’ve seen simple group-by expressions that we can use to aggregate on
+a set of columns with the values in those columns. However, sometimes we want something a bit
+more complete—an aggregation across multiple groups. We achieve this by using grouping sets.
+Grouping sets are a low-level tool for combining sets of aggregations together. They give you the
+ability to create arbitrary aggregation in their group-by statements.
+
+Let’s work through an example to gain a better understanding. Here, we would like to get the
+total quantity of all stock codes and customers. To do so, we’ll use the following SQL
+expression:
+```
+dfNoNull = dfWithDate.drop()
+dfNoNull.createOrReplaceTempView("dfNoNull")
+
+# You can do the exact same thing by using a grouping set:
+SELECT CustomerId, stockCode, sum(Quantity) FROM dfNoNull
+GROUP BY customerId, stockCode GROUPING SETS((customerId, stockCode))
+ORDER BY CustomerId DESC, stockCode DESC
+```
+Simple enough, but what if you also want to include the total number of items, regardless of
+customer or stock code? With a conventional group-by statement, this would be impossible. But,
+it’s simple with grouping sets: we simply specify that we would like to aggregate at that level, as
+well, in our grouping set. This is, effectively, the union of several different groupings together:
+```
+SELECT CustomerId, stockCode, sum(Quantity) FROM dfNoNull
+GROUP BY customerId, stockCode GROUPING SETS((customerId, stockCode),())
+ORDER BY CustomerId DESC, stockCode DESC
+```
+
+/!\ GROUPING SETS operator is only available in SQL. To perform the same in DataFrames, you use rollup
+and cube operators.
+
+#### Rollups
+A rollup is a multidimensional aggregation that performs a variety of group-by style calculations for us.
+Let’s create a rollup that looks across time (with our new Date column) and space (with the Country column)
+and creates a new DataFrame that includes the grand total over all dates, the grand total for each date in
+the DataFrame, and the subtotal for each country on each date in the DataFrame:
+```
+rolledUpDF = dfNoNull.rollup("Date", "Country").agg(sum("Quantity"))\
+.selectExpr("Date", "Country", "`sum(Quantity)` as total_quantity")\
+.orderBy("Date")
+```
+
+#### Cube
+A cube takes the rollup to a level deeper. Rather than treating elements hierarchically, a cube
+does the same thing across all dimensions.
+```
+from pyspark.sql.functions import sum
+dfNoNull.cube("Date", "Country").agg(sum(col("Quantity")))\
+.select("Date", "Country", "sum(Quantity)").orderBy("Date").show()
+```
+
+#### Grouping Metadata
+Sometimes when using cubes and rollups, you want to be able to query the aggregation levels so
+that you can easily filter them down accordingly. We can do this by using the grouping_id,
+which gives us a column specifying the level of aggregation that we have in our result set.
+```
+dfNoNull.cube("customerId", "stockCode").agg(grouping_id(), sum("Quantity"))
+.orderBy(expr("grouping_id()").desc)
+```
+
+#### Pivot
+Pivots make it possible for you to convert a row into a column.
+```
+pivoted = dfWithDate.groupBy("date").pivot("Country").sum()
+```
+
 ## Chapter 8. Joins
 
 ### Join types
@@ -734,8 +801,8 @@ val purchaseRank = rank().over(windowSpec)
 - Outer joins (keep rows with keys in either the left or right datasets)
 - Left outer joins (keep rows with keys in the left dataset)
 - Right outer joins (keep rows with keys in the right dataset)
-- Left semi joins (keep the rows in the left, and only the left, dataset where the key appears in the right dataset)
-- Left anti joins (keep the rows in the left, and only the left, dataset where they do not appear in the right
+- Left semi joins (keep the rows in the left, and only the left dataset where the key appears in the right dataset)
+- Left anti joins (keep the rows in the left, and only the left dataset where they do not appear in the right
   dataset)
 - Natural joins (perform a join by implicitly matching the columns between the two datasets with the same names)
 - Cross (or Cartesian) joins (match every row in the left dataset with every row in the right dataset)
@@ -956,8 +1023,7 @@ available executors in parallel.
 The number of files or data written is dependent on the number of partitions the DataFrame has at the time you write
 out the data.
 
-- Partitioning
-  Partitioning is a tool that allows you to control what data is stored (and where) as you write it. When you write a
+- Partitioning is a tool that allows you to control what data is stored (and where) as you write it. When you write a
   file
   to a partitioned directory (or table), you basically encode a column as a folder. What this allows you to do is skip
   lots
@@ -969,8 +1035,7 @@ csvFile.limit(10).write.mode("overwrite").partitionBy("DEST_COUNTRY_NAME")
   .save("/tmp/partitioned-files.parquet")
 ```
 
-- Bucketing
-  Bucketing is another file organization approach with which you can control the data that is specifically written
+- Bucketing is another file organization approach with which you can control the data that is specifically written
   to each file. This can help avoid shuffles later when you go to read the data because data with the same bucket ID
   will all be grouped together into one physical partition. This means that the data is prepartitioned according to
   how you expect to use that data later on, meaning you can avoid expensive shuffles when joining or aggregating.
@@ -1170,7 +1235,7 @@ public class Flight implements Serializable {
 
 Case classes advantages:
 
-- **q** frees you from needing to keep track of where and when things are mutated.
+- **Immutability** frees you from needing to keep track of where and when things are mutated.
 - **Comparison-by-value** allows you to compare instances as if they were primitive values —no more uncertainty
   regarding whether instances of a class are compared by value or reference.
 - **Pattern matching** simplifies branching logic, which leads to less bugs and more readable code.
