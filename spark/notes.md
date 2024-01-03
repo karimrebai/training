@@ -35,11 +35,3 @@
 Links:
 - https://www.linkedin.com/pulse/catalyst-tungsten-apache-sparks-speeding-engine-deepak-rajak/
 - https://www.linkedin.com/pulse/apache-spark-rdd-vs-dataframe-dataset-chandan-prakash/
-
-
-## Hadoop
-- Hadoop:
-  - hdfs: namenode, secondary namenode, datanode: facteur de replication par défaut est de 3
-  - mapreduce: traitement des données
-  - yarn: gestion des ressources
-  - zookeeper: coordinateur
