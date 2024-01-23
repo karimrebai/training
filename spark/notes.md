@@ -10,6 +10,7 @@
 
 - A Partition is processed by a Core that has been assigned to an Executor. An Executor typically has 1 core but can 
   have more than 1 such Core.
+
 - An App has Actions that translate to 1 or more Jobs.
 
 - A Job has Stages (based on Shuffle Boundaries).
