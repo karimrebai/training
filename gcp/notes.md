@@ -1,94 +1,142 @@
-## Big Data and ML on GCP
+Best practices doc:
 
-### Compute
+- Bigtable
+https://cloud.google.com/bigtable/quotas#storage-per-node
 
-- Compute Engine: IaaS offering. Compute, Network, Storage, Max flexibility
-- GKE (Google Kubernetes Engine): Runs containerized apps in a Cloud environment. A container represents packaged up 
-  with all its dependencies.
-- App Engine: PaaS. Bind code to libraries that provide access to the infra application needs.
-- Cloud Functions: FaaS. Executes code in response to events. Serverless execution environment.
-- Cloud Runs: Automatically scales up/down. Charges only for resources you use.
-    
-### Storage
-
-- Unstructured Data -> Cloud Storage or BigTable
-  In Cloud Storage, we store objects (images, files...) in buckets which belong to a project.
-- Structured Data
-  - OLTP (fast inserts and updates)
-    - SQL -> Cloud SQL / Cloud Spanner
-    - NoSQL -> Firestore
-  - OLAP (analytics, querying)
-    - SQL -> BigQuery
-    - NoSQL -> BigTable
-
-### Product Categories
-
-#### Ingestion & process
 - Pub/Sub
-- Dataflow
-- Dataproc
-- Cloud Data fusion
+https://cloud.google.com/pubsub/docs/publish-best-practices
+https://cloud.google.com/pubsub/docs/subscribe-best-practices
 
-#### Storage
-- Cloud Storage
+
+
+
+
+
+  
+# Modernizing Data Lakes and Data Warehouses
+
+## Intro to data engineering
+
+- Key considerations when building a data lake:
+  - Type of data ?
+  - Scale to meet the demand ?
+  - High throughput ingestion ?
+  - Fine-grained access control to objects ?
+  - Other tools can connect to it easily ?
+
+- Key considerations when building a data warehouse:
+  - Can it serve as a sink for both batch and streaming pipelines ?
+  - Can it scale to meet my needs ?
+  - How the data is organized, cataloged and access controlled ?
+  - Is it design for performance ?
+  - What level of maintenance is required by your engineering team ?
+
 - Cloud SQL
-- Cloud Spanner
-- Cloud BigTable
-- Firestore
+  - Optimized for high-throughput writes
 
-#### Analytics
-- BigQuery
-- Looker
-- Looker Studio
+- Big Query
+  - Optimized for high-read data
 
-#### Machine Learning & AI
-- Vertex AI
-- AutoML
-- Vertex AI Workbench
-- TensorFlow
-- Document AI
-- Contact Center AI
-- Retail Product Discovery
-- Healthcare Data Engine
+## Building a data lake
 
-## Data Engineering For Streaming Data
+TODO
 
-### Big Data Challenges
+## Building a data warehouse
 
-- 4Vs:
-  - Variety
-  - Volume
-  - Velocity
-  - Veracity
+### Schema design
 
-### Designing streaming pipelines with Apache Beam
+- Transactional databases often use normal form
+=> Store the data efficiently
+=> Query processing is clear and direct
+=> Improves orderliness of the data, useful to save space
 
-- Apache Beam has the following characteristics:
-  - Unified: Uses a single programming model for both batch and streaming data
-  - Portable: Can work on multiple execution environments, like Dataflow or Spark
-  - Extensible: Allows to write and share your own connectors and transformation libraries
+Example: Order -> Order items
 
-### Implementing streaming pipelines on Cloud Dataflow
+- Data warehouses often denormalize
+Denormalizing is the strategy of duplicate field values for a column in a table to gain performance
+Data is repeated rather than being relational
+Flattened data takes more space but makes queries more efficient because they can be processed in parallel using
+columnar processing
+Specifically, denormalizing enables BigQuery to more efficiently distribute processing amon slots
 
-- Dataflow is designed to be low maintenance:
-  - NoOps
-  - Serverless
+Normalizing data can be bad for performance => Grouping on a 1-to-many field in flattened data can cause shuffling
+of data over the network.
 
-- Job stage[Google Certified Professional Data Engineer PDF.pdf](..%2F..%2FDownloads%2FGoogle%20Certified%20Professional%20Data%20Engineer%20PDF.pdf)s:
-  - Graph optimization
-  - Work scheduler
-  - Auto-scaler
-  - Auto-healing
-  - Work re-balancing
-  - Compute & Storage
+Put all the info in a single table is not a good solution too, because data would be duplicated.
 
-- Dataflow templates:
-  - Streaming: Pub/Sub to BigQuery, Pub/Sub to Cloud Storage, Datastream to BigQuery...
-  - Batch: BigQuery to Cloud Storage...
-  - Utility: Bulk Compression of Cloud Storage files, Firestore bulk delete, File format conversion...
+Fortunately, BigQuery supports a method to overcome this with Repeated and Nested fields.
 
-## Big Data withb BigQuery
+### Nested and repeated fields
 
-- Predicting on: 
-  - Numeric value -> Consider Linear Regression for forecasting
-  - Discrete class (like high, low...) -> Consider Logistic Regression for classification
+Nested ARRAY fields and STRUCT fields allow for differing data granularity in the same table.
+
+STRUCT allows really wide schemas, major benefit is that the data is pre joined already, hence faster to query.
+
+STRUCT fields => RECORD type
+ARRAY fields => REPEATED mode / Can be of any type and can be part of regular fields or STRUCTS
+
+Demo: https://github.com/GoogleCloudPlatform/training-data-analyst/blob/master/courses/data-engineering/demos/nested.md
+
+### Recap
+
+- Instead of joins, take advantage of nested and repeated fields in denormalized tables
+  - Keep a dimension table smaller than 10 GB normalized, unless the table rarely goes through UPDATE and DELETE operations
+- Denormalize a dimension table larger than 10 GB, unless data manipulation or costs outweigh benefits of optimal queries
+
+Examples:
+```sql
+SELECT fullVisitorId, date,
+    ARRAY_AGG(DISTINCT v2ProductName) AS products_viewed,
+    ARRAY_LENGTH(ARRAY_AGG(DISTINCT v2ProductName)) AS distinct_products_viewed
+FROM `data-to-insights.ecommerce.all_sessions`
+WHERE visitId = 1501570398
+GROUP BY fullVisitorId, date
+ORDER BY date
+```
+
+```sql
+SELECT DISTINCT visitId,
+                h.page.pageTitle
+FROM `bigquery-public-data.google_analytics_sample.ga_sessions_20170801`,
+     UNNEST(hits) AS h
+```
+
+### Partitioning and Clustering
+
+TODO
+
+https://cloud.google.com/bigquery/docs/partitioned-tables
+
+https://cloud.google.com/bigquery/docs/clustered-tables
+
+
+
+
+# Building Batch Data Pipelines on Google Cloud
+
+## Executing Spark on Dataproc
+
+### Optimizing Dataproc Storage
+
+- Local HDFS is a good solution if:
+  - Your jobs require a lot of metadata operations: having thousands of files / partitions and each file is small
+  - You modify the HDFS data frequently or you rename directories: Cloud Storage objects are immutable so renaming
+    a directory is an expensive operation because it consists of copying all objects to a new key and deleting them
+  - You heavily use the append operation on HDFS files
+  - You have workloads that involve heavy I/O - spark.write.partitionBy(...).parquet("gs://...")
+  - You have I/O workloads that are especially sensitive to latency
+
+- Cloud Storage works well as the initial and final source of data in a big data pipeline
+
+- Separating storage and compute helps reduce costs significantly
+
+- Cluster Scheduled Deletion:
+  - Minimum: 10 minutes
+  - Maximum: 14 days
+
+- With ephemeral clusters, you only pay for what you use
+
+- If persistent cluster is required:
+  - Create the smallest cluster you can, using preemptible VMs based on time budget
+  - Scope your work to the smallest possible number of jobs
+  - Scale the cluster to the minimum workable number of nodes, use auto-scaling.
