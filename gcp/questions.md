@@ -41,8 +41,8 @@ complete the shutdown process?**
   running to process buffered data, which is not what we want._
 
 ***
-**What is the difference between a deep and wide neural network? What would you use a deep AND wide neural network for?
-**
+**What is the difference between a deep and wide neural network?
+What would you use a deep AND wide neural network for?**
 
 - Deep and wide models are ideal for a recommendation application.<br>
 - Wide models are used for memorization. Deep models are for generalization.<br>
