@@ -116,34 +116,55 @@ public IP addresses. How can you achieve this?**
   However, Private Google Access is still required for the subnet to access certain GCP APIs._
 
 ***
-**Question**
+**You need to design a data pipeline that will allow you to ingest TBs data for later analysis as both large-scale SQL
+aggregations and small range-scan lookups. What would be a good approach to this?**
 
-- Answer<br>
-  _Explanation_
-
-***
-**Question**
-
-- Answer<br>
-  _Explanation_
+- Ingest data through Cloud Dataflow. Use multiple transformations to output to BigQuery for SQL aggregate queries, and
+  Bigtable for range-scan queries.<br>
+  _Large scale aggregated SQL queries are best run on BigQuery, whereas small range-scan lookups across TBs of data work
+  best on Cloud Bigtable. By using a single Cloud Dataflow pipeline you can ingest data into both systems at the same
+  time and have your choice of query method. Datastore and Spanner would not support both types of query._
 
 ***
-**Question**
+**You want to display aggregate view counts for your YouTube channel data in Data Studio. You want to see the video
+titles and view counts summarized over the last 30 days. You also want to divide the data by the Country Code using the
+fewest possible steps. What should you do?**
 
-- Answer<br>
-  _Explanation_
+- Set up a YouTube data source for your channel data for Data Studio. Set Views as the metric and set Video Title and
+  Country Code as report dimensions.<br>
+  _Using Views as the metric and setting Video Title and Country Code as the report dimensions is the better option.
+  Country Code is a dimension because it's a string and should be displayed as such, that is, showing all countries,
+  instead of filtering._
 
 ***
-**Question**
+**You currently have a Bigtable instance you've been using for development running a development instance type, using
+HDDs for storage. You are ready to upgrade your development instance to a production instance for increased performance.
+You also want to upgrade your storage to SSDs as you need maximum performance for your instance. What should you do?**
 
-- Answer<br>
-  _Explanation_
+- Export your Bigtable data into a new instance, and configure the new instance type as production with SSDs<br>
+  _Since you cannot change the disk type on an existing Bigtable instance, you will need to export/import your Bigtable
+  data into a new instance with the different storage type. You will need to export to Cloud Storage then back to
+  Bigtable again._
 
 ***
-**Question**
+**Which of these is NOT a type of trigger that applies to Dataflow?**
 
-- Answer<br>
-  _Explanation_
+- Element size in bytes<br>
+  _Element size is not a type of trigger; therefore, it is the correct answer. Dataflow is basically an Apache
+  Beam-managed service. The triggers that apply to Dataflow are: event time triggers, processing time triggers,
+  data-driven triggers, composite triggers, Pub/Sub topics, and Cloud Functions._
+
+***
+**You have deployed some custom data processing code on Compute Engine which receives data from a push subscription to a
+Cloud Pub/Sub topic. You have noticed that in Stackdriver the num_outstanding_messages metric has occasional peaks and
+is never less than 100. What could be causing this?**
+
+- There is insufficient processing power in the Compute Engine deployment to process the amount of Pub/Sub traffic.
+  Increase the size of the Compute Engine instance.<br>
+  _If the num_outstanding_messages metric on a push subscription has occasional peaks, it is likely that the subscriber
+  is sometimes struggling to deal with the load of the messages being sent. In this case it would be logical to assume
+  that the Compute Engine resource is underpowered. Changing the subscription model is not applicable, and there is no
+  need to switch to Kubernetes Engine._
 
 ***
 **Question**
