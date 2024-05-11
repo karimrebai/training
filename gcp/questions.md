@@ -167,28 +167,45 @@ is never less than 100. What could be causing this?**
   need to switch to Kubernetes Engine._
 
 ***
-**Question**
+**You need to choose a structure storage option for storing very large amounts of data with the following properties and
+requirements: 1) The data has a single key 2) You need very low latency. Which solution should you choose?**
 
-- Answer<br>
-  _Explanation_
-
-***
-**Question**
-
-- Answer<br>
-  _Explanation_
+- Cloud Bigtable<br>
+  _Bigtable uses a single key and has very low latency (in milliseconds), so it is the best choice. Datastore stores
+  less data than Bigtable, and operates on multiple keys. Cloud SQL holds at most 15TB of data and is not a high
+  performance single-key database. BigQuery does not use single key values and has latency measured in seconds, not
+  milliseconds._
 
 ***
-**Question**
+**Your company's aging Hadoop servers are nearing end of life. Instead of replacing your hardware, your CIO has decided
+to migrate the cluster to Google Cloud Dataproc. A direct lift and shift migration of the cluster would require 30 TB of
+disk space per individual node. There are cost concerns about using that much storage. How can you best minimize the
+cost of the migration?**
 
-- Answer<br>
-  _Explanation_
+- Decouple storage from computer by placing the data in Cloud Storage<br>
+  _Placing all input and output data in Cloud Storage allows you to 1. Treat clusters as ephemeral and 2. Use a much
+  cheaper storage location compared to persistent disks without a noticeable impact on performance. Preemptible VM's
+  only save costs on compute (CPU/memory) usage, and has no effect on storage costs._
 
 ***
-**Question**
+**Your organization will be deploying a new fleet of IoT devices, and writes to your Bigtable instance are expected to
+peak at 50,000 queries per second. You have optimized your row key design and need to design a cluster that can meet
+this demand. What do you do?**
 
-- Answer<br>
-  _Explanation_
+- Scale the instance to 5 SSD nodes.<br>
+  _An optimized Bigtable instance with a well-designed row key schema can theoretically support up to 10,000 write
+  queries per second per node, so 5 nodes are required._
+
+***
+**What types of Bigtable row keys can lead to hot-spotting?**
+
+- Leading with a non-reversed timestamp.<br>
+- Standard domain names (non-reversed).<br>
+  _Like sequential IDs, timestamps will read and write from the same node, causing increased load. Non-reversed domain
+  names at the start of a row key can lead to hot-spotting. If you need to use domain names, reverse it. Reverse
+  timestamps will spread the load for reads and writes between nodes, making this an incorrect answer for this question.
+  Randomized IDs will spread the load for reads and writes between nodes, making this an incorrect answer for this
+  question._
 
 ***
 **Question**
