@@ -208,22 +208,34 @@ this demand. What do you do?**
   question._
 
 ***
-**Question**
+**Your company needs to run analytics on their incoming inventory data stream. They need to use their existing Hadoop
+workloads to perform this task. What two steps must be performed for storing and analyzing incoming inventory data
+streams using the existing Hadoop workloads?**
 
-- Answer<br>
-  _Explanation_
+- Stream from Cloud Pub/Sub into Cloud Dataproc, which can then place relevant data in the appropriate storage location.
+- Connect Cloud Dataproc to Bigtable and Cloud Storage, running analytics on the data in both services.<br>
+  _They need to reuse their existing Hadoop/Spark code, so Dataflow would be the wrong solution. Dataproc can connect to
+  Pub/Sub for ingesting data. We can then process the data and then natively connect to Cloud Storage or Bigtable for
+  storage and analytics._
 
 ***
-**Question**
+**You want to train your machine learning model on AI Platform while saving costs. Which scaling tier would you choose?
+**
 
-- Answer<br>
-  _Explanation_
+- BASIC<br>
+  _BASIC tier uses a single instance and is the lowest cost. CUSTOM can use different configurations, but BASIC is still
+  cheaper with a single instance. STANDARD_1 and PREMIUM_1 all use multiple worker and parameter servers are more
+  expensive._
 
 ***
-**Question**
+**You work at a very large organizations that has a very large analyst team. You use the default pricing model for
+BigQuery. During heavy usage, your analyst group occasionally runs out of the 2000 slots available for the BigQuery
+jobs. You do not want to create additional projects for the sole purpose of increasing slot count. What can you do to
+resolve this?**
 
-- Answer<br>
-  _Explanation_
+- Switch to flat rate pricing to enable a higher total slot quota for your project.<br>
+  _Creating another project is not necessary. Switching to flat rate pricing for the single project will allow you to
+  increase your slot count._
 
 ***
 **Question**
