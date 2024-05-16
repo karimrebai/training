@@ -238,16 +238,27 @@ resolve this?**
   increase your slot count._
 
 ***
-**Question**
+**You have in your possession a database of financial transactions, which include a user's name, location, purchase
+location, and purchase amount. Each transaction is also labeled whether or not the transaction was fraudulent. With this
+data, what two types of machine learning can potentially applied to this dataset?**
 
-- Answer<br>
-  _Explanation_
+- Unsupervised learning to identify patterns (clustering) in the data to predict the location of future purchases.
+- Using the applied fraudulent/non-fraudulent labels, apply supervised classification learning to predict which future
+  transactions are likely to be fraudulent<br>
+  _Reinforcement learning uses reward systems to complete a task. Predicting the location would be an example of using
+  unsupervised learning to find patterns. Unsupervised learning does not use labels but does look for patterns (or
+  clustering) of data in order to make predictions based on the patterns it learns. Supervised learning takes labeled
+  training data to predict future results on new test data. Classification models apply categorized variables (i.e. "
+  fraudulent", "not fraudulent")._
 
 ***
-**Question**
+**Which of these statements do not apply to preemptible worker nodes on Cloud Dataproc?**
 
-- Answer<br>
-  _Explanation_
+- Your cluster can be created with only preemptible workers
+- You must have a max of 2:1 ratio of preemptible to standard workers.<br>
+  _There is no ratio requirement, but be aware that preemptible workers can be reclaimed at any time, and you will want
+  a number of standard workers that are always persistent. You must have at least one standard worker in a cluster, but
+  you can add/remove preemptible workers at any time._
 
 ***
 **Question**
