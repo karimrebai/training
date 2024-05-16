@@ -219,8 +219,8 @@ streams using the existing Hadoop workloads?**
   storage and analytics._
 
 ***
-**You want to train your machine learning model on AI Platform while saving costs. Which scaling tier would you choose?
-**
+**You want to train your machine learning model on AI Platform while saving costs.
+Which scaling tier would you choose?**
 
 - BASIC<br>
   _BASIC tier uses a single instance and is the lowest cost. CUSTOM can use different configurations, but BASIC is still
