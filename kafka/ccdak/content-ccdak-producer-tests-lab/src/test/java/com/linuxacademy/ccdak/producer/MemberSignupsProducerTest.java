@@ -91,6 +91,7 @@ public class MemberSignupsProducerTest {
         // Verify that the producer logs the error message to System.err if an error occurs when sending a record.
         // A text fixture called systemErrContent has already been set up in this class to capture System.err data.
         memberSignupsProducer.handleMemberSignup(1, "bayern");
+
         mockProducer.errorNext(new RuntimeException("oh fada"));
 
         Assert.assertEquals("oh fada\n", systemErrContent.toString());
