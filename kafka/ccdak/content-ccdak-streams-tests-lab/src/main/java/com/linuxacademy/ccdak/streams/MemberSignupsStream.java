@@ -56,7 +56,6 @@ public class MemberSignupsStream {
                 latch.countDown();
             }
         });
-
         try {
             streams.start();
             latch.await();
